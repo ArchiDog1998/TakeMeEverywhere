@@ -1,0 +1,19 @@
+﻿
+name: Take Me Everywhere
+author: ArchiTed
+description: |-
+  Take your character to everywhere you want.
+punchline: Analyses PvE combat information every frame and finds the best action.
+repo_url: https://github.com/ArchiDog1998/TakeMeEverywhere
+icon_url: https://xivapi.com/i/000000/000061_hr1.png
+dalamud_api_level: 9
+tags:
+  - run
+  - move
+category_tags:
+  - actions
+image_urls:
+download_count: 1024
+download_link_install: https://github.com/ArchiDog1998/TakeMeEverywhere/releases/latest/download/latest.zip
+download_link_update: https://github.com/ArchiDog1998/TakeMeEverywhere/releases/latest/download/latest.zip
+download_link_testing: https://github.com/ArchiDog1998/TakeMeEverywhere/releases/latest/download/latest.zip

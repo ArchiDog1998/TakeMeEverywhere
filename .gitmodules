@@ -1,0 +1,9 @@
+[submodule "XIVRunner"]
+	path = XIVRunner
+	url = https://github.com/ArchiDog1998/XIVRunner
+[submodule "XIVPainter"]
+	path = XIVPainter
+	url = https://github.com/ArchiDog1998/XIVPainter
+[submodule "ECommons"]
+	path = ECommons
+	url = https://github.com/NightmareXIV/ECommons

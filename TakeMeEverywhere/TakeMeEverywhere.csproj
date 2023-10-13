@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net7.0</TargetFramework>
+	<TargetFramework>net7.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 	<Authors>ArchiTed</Authors>
@@ -44,5 +44,9 @@
 			<HintPath>$(DalamudLibPath)Newtonsoft.Json.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
+
+		<ProjectReference Include="..\XIVPainter\XIVPainter\XIVPainter.csproj" />
+		<ProjectReference Include="..\XIVRunner\XIVRunner\XIVRunner.csproj" />
+		<ProjectReference Include="..\ECommons\ECommons\ECommons.csproj" />
 	</ItemGroup>
 </Project>
