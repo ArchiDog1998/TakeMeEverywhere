@@ -11,6 +11,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XIVPainter", "XIVPainter\XI
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XIVRunner", "XIVRunner\XIVRunner\XIVRunner.csproj", "{656DB407-C635-4D2E-AD71-36E823FE848F}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Roy-T.AStar", "AStar\Roy-T.AStar\Roy-T.AStar.csproj", "{7A48E353-F8FE-478D-AA7E-016562A6A839}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -51,6 +53,14 @@ Global
 		{656DB407-C635-4D2E-AD71-36E823FE848F}.Release|Any CPU.Build.0 = Release|Any CPU
 		{656DB407-C635-4D2E-AD71-36E823FE848F}.Release|x64.ActiveCfg = Release|Any CPU
 		{656DB407-C635-4D2E-AD71-36E823FE848F}.Release|x64.Build.0 = Release|Any CPU
+		{7A48E353-F8FE-478D-AA7E-016562A6A839}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7A48E353-F8FE-478D-AA7E-016562A6A839}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7A48E353-F8FE-478D-AA7E-016562A6A839}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{7A48E353-F8FE-478D-AA7E-016562A6A839}.Debug|x64.Build.0 = Debug|Any CPU
+		{7A48E353-F8FE-478D-AA7E-016562A6A839}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7A48E353-F8FE-478D-AA7E-016562A6A839}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7A48E353-F8FE-478D-AA7E-016562A6A839}.Release|x64.ActiveCfg = Release|Any CPU
+		{7A48E353-F8FE-478D-AA7E-016562A6A839}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

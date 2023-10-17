@@ -7,3 +7,6 @@
 [submodule "ECommons"]
 	path = ECommons
 	url = https://github.com/NightmareXIV/ECommons
+[submodule "AStar"]
+	path = AStar
+	url = https://github.com/ArchiDog1998/AStar

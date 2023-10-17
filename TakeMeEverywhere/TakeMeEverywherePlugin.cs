@@ -5,8 +5,8 @@ namespace TakeMeEverywhere;
 
 public sealed class TakeMeEverywherePlugin : IDalamudPlugin, IDisposable
 {
-    XIVPainter.XIVPainter _painter;
-    XIVRunner.XIVRunner _runner;
+    readonly XIVPainter.XIVPainter _painter;
+    readonly XIVRunner.XIVRunner _runner;
     public TakeMeEverywherePlugin(DalamudPluginInterface pluginInterface)
     {
         ECommonsMain.Init(pluginInterface, this, Module.DalamudReflector, Module.ObjectFunctions);
