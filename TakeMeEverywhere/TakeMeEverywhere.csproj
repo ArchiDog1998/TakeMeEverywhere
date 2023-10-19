@@ -44,7 +44,8 @@
 			<HintPath>$(DalamudLibPath)Newtonsoft.Json.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
-
+		
+		<ProjectReference Include="..\AStar\Roy-T.AStar\Roy-T.AStar.csproj" />
 		<ProjectReference Include="..\XIVPainter\XIVPainter\XIVPainter.csproj" />
 		<ProjectReference Include="..\XIVRunner\XIVRunner\XIVRunner.csproj" />
 		<ProjectReference Include="..\ECommons\ECommons\ECommons.csproj" />
