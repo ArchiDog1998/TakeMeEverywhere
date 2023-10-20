@@ -6,20 +6,26 @@ using ECommons.GameHelpers;
 using Lumina.Excel.GeneratedSheets;
 using Newtonsoft.Json;
 using Roy_T.AStar.Graphs;
-using Roy_T.AStar.Serialization;
 using System.Numerics;
 
 namespace TakeMeEverywhere;
 
 public sealed class TakeMeEverywherePlugin : IDalamudPlugin, IDisposable
 {
+    public enum PathState
+    {
+        None,
+        Run,
+        Fly,
+    }
+
     readonly XIVPainter.XIVPainter _painter;
     readonly XIVRunner.XIVRunner _runner;
     //readonly IDalamudPlugin _lifeStream;
 
     readonly AetheryteInfo[] _aetheryteInfos;
 
-    private INode[] _nodes = Array.Empty<INode>();
+    private INode[] _runNodes = Array.Empty<INode>(), _flyNodes = Array.Empty<INode>();
 
     public DesiredPosition? Position { get; set; }
 
@@ -59,7 +65,7 @@ public sealed class TakeMeEverywherePlugin : IDalamudPlugin, IDisposable
         var name = Svc.Data.GetExcelSheet<TerritoryType>()?.GetRow(obj)?.Name.RawString;
         if(string.IsNullOrEmpty(name))
         {
-            _nodes = Array.Empty<INode>();
+            _runNodes = Array.Empty<INode>();
             return;
         }
 
@@ -73,12 +79,12 @@ public sealed class TakeMeEverywherePlugin : IDalamudPlugin, IDisposable
             catch (Exception ex)
             {
                 Svc.Log.Information(ex, "Failed to download territory graph.");
-                _nodes = Array.Empty<INode>();
+                _runNodes = _flyNodes = Array.Empty<INode>();
                 return;
             }
             if (!File.Exists(file))
             {
-                _nodes = Array.Empty<INode>();
+                _runNodes = _flyNodes = Array.Empty<INode>();
                 return;
             }
         }
@@ -86,12 +92,14 @@ public sealed class TakeMeEverywherePlugin : IDalamudPlugin, IDisposable
         var str = await File.ReadAllTextAsync(file);
         try
         {
-            _nodes = JsonConvert.DeserializeObject<GraphDto>(str).ToNodes();
+            var graph = JsonConvert.DeserializeObject<TerritoryGraph>(str);
+            _runNodes = graph.Run.ToNodes();
+            _flyNodes = graph.Fly.ToNodes();
         }
         catch (Exception ex)
         {
             Svc.Log.Information(ex, "Failed to load territory graph.");
-            _nodes = Array.Empty<INode>();
+            _runNodes = _flyNodes = Array.Empty<INode>();
         }
 
         static string GetFile(string name)
@@ -123,6 +131,7 @@ public sealed class TakeMeEverywherePlugin : IDalamudPlugin, IDisposable
         Position?.CheckYValue();
 
         if (Position == null) return;
+
         CheckTeleport(Position.Value);
         RunToPotision(Position.Value);
     }
@@ -138,21 +147,61 @@ public sealed class TakeMeEverywherePlugin : IDalamudPlugin, IDisposable
             .OrderBy(a => (a.Location - pt).LengthSquared())
             .FirstOrDefault();
 
+        //TODO: Better safe teleport!
         aetheryte.Teleport();
     }
 
+    private PathState _state = PathState.None;
     private void RunToPotision(DesiredPosition position)
     {
-        if (Svc.ClientState.TerritoryType != position.TerritoryId) return;
+        var hasNaviPts = _runner.NaviPts.Count > 0;
 
-        if (_runner.NaviPts.Count > 0) return;
-        if (_nodes == null || _nodes.Length == 0) return;
+        if (Svc.ClientState.TerritoryType != position.TerritoryId)
+        {
+            _state = PathState.None;
+            return;
+        }
+        else if (!hasNaviPts)
+        {
+            _state = PathState.None;
+
+            //Arrived!
+            if (Vector3.DistanceSquared(position.Position, Player.Object.Position)
+            < _runner.Precision * _runner.Precision)
+            {
+                Position = null;
+                return;
+            }
+        }
+
+        switch (_state)
+        {
+            case PathState.Fly when XIVRunner.XIVRunner.IsFlying && hasNaviPts:
+            case PathState.Run when !XIVRunner.XIVRunner.IsFlying && hasNaviPts:
+                return;
+
+            case PathState.None:
+            case PathState.Fly:
+                FindGraphWithNodes(position, _runNodes);
+                _state = PathState.Run;
+                return;
+
+            case PathState.Run:
+                FindGraphWithNodes(position, _flyNodes);
+                _state = PathState.Fly;
+                return;
+        }
+    }
+
+    private void FindGraphWithNodes(DesiredPosition position, INode[] nodes)
+    {
+        if (nodes == null || nodes.Length == 0) return;
 
         var start = Player.Object.Position;
         var end = position.Position;
 
-        var startNode = _nodes.MinBy(a => Vector3.DistanceSquared(start, a.Position));
-        var endNode = _nodes.MinBy(a => Vector3.DistanceSquared(end, a.Position));
+        var startNode = nodes.MinBy(a => Vector3.DistanceSquared(start, a.Position));
+        var endNode = nodes.MinBy(a => Vector3.DistanceSquared(end, a.Position));
 
         var finder = new Roy_T.AStar.Paths.PathFinder();
         var path = finder.FindPath(startNode, endNode, float.MaxValue);
