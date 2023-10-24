@@ -3,8 +3,6 @@ using Dalamud.Plugin.Services;
 using ECommons;
 using ECommons.DalamudServices;
 using ECommons.GameHelpers;
-using Lumina.Excel.GeneratedSheets;
-using Newtonsoft.Json;
 using Roy_T.AStar.Graphs;
 using System.Numerics;
 
@@ -19,142 +17,52 @@ public sealed class TakeMeEverywherePlugin : IDalamudPlugin, IDisposable
         Fly,
     }
 
-    readonly XIVPainter.XIVPainter _painter;
-    readonly XIVRunner.XIVRunner _runner;
-    //readonly IDalamudPlugin _lifeStream;
-
-    readonly AetheryteInfo[] _aetheryteInfos;
-
-    private INode[] _runNodes = Array.Empty<INode>(), _flyNodes = Array.Empty<INode>();
-
-    public DesiredPosition? Position { get; set; }
-
     public TakeMeEverywherePlugin(DalamudPluginInterface pluginInterface)
     {
-        ECommonsMain.Init(pluginInterface, this, Module.DalamudReflector, Module.ObjectFunctions);
-        _painter = XIVPainter.XIVPainter.Create(pluginInterface, "Take Me Everywhere");
-        _runner = XIVRunner.XIVRunner.Create(pluginInterface);
+        ECommonsMain.Init(pluginInterface, this, Module.ObjectFunctions);
 
-        _aetheryteInfos = Svc.Data.GetExcelSheet<Aetheryte>()?
-            .Select(a => new AetheryteInfo(a)).ToArray()
-            ?? Array.Empty<AetheryteInfo>();
-
-        //if(!DalamudReflector.TryGetDalamudPlugin("Lifestream", out _lifeStream))
-        //{
-        //    Svc.Chat.Print("Failed to get lifestream");
-        //}
+        Service.Init(pluginInterface);
 
         Svc.Framework.Update += Update;
-        Svc.ClientState.TerritoryChanged += TerritoryChanged;
     }
 
     public void Dispose()
     {
         Svc.Framework.Update -= Update;
-        Svc.ClientState.TerritoryChanged -= TerritoryChanged;
 
-        _painter.Dispose();
-        _runner.Dispose();
+        Service.Dispose();
         ECommonsMain.Dispose();
-    }
-
-    private async void TerritoryChanged(ushort obj)
-    {
-        _runner.NaviPts.Clear();
-
-        var name = Svc.Data.GetExcelSheet<TerritoryType>()?.GetRow(obj)?.Name.RawString;
-        if(string.IsNullOrEmpty(name))
-        {
-            _runNodes = Array.Empty<INode>();
-            return;
-        }
-
-        var file = GetFile(name);
-        if (!File.Exists(file))
-        {
-            try
-            {
-                await DownloadFile(name, file);
-            }
-            catch (Exception ex)
-            {
-                Svc.Log.Information(ex, "Failed to download territory graph.");
-                _runNodes = _flyNodes = Array.Empty<INode>();
-                return;
-            }
-            if (!File.Exists(file))
-            {
-                _runNodes = _flyNodes = Array.Empty<INode>();
-                return;
-            }
-        }
-
-        var str = await File.ReadAllTextAsync(file);
-        try
-        {
-            var graph = JsonConvert.DeserializeObject<TerritoryGraph>(str);
-            _runNodes = graph.Run.ToNodes();
-            _flyNodes = graph.Fly.ToNodes();
-        }
-        catch (Exception ex)
-        {
-            Svc.Log.Information(ex, "Failed to load territory graph.");
-            _runNodes = _flyNodes = Array.Empty<INode>();
-        }
-
-        static string GetFile(string name)
-        {
-            var dirInfo = Svc.PluginInterface.ConfigDirectory;
-            if (!dirInfo.Exists)
-            {
-                dirInfo.Create();
-            }
-
-            return Path.Combine(dirInfo.FullName, name + ".json");
-        }
-
-        static async Task DownloadFile(string name, string file)
-        {
-            using var client = new HttpClient();
-            var str = await client.GetStringAsync($"https://raw.githubusercontent.com/ArchiDog1998/TakeMeEverywhere/main/TerritoryMesh/{name}.json");
-
-            await File.WriteAllTextAsync(file, str);
-        }
     }
 
     private void Update(IFramework framework)
     {
 #if DEBUG
-        Position = DesiredPosition.FromFlag();
+        Service.Position ??= DesiredPosition.FromFlag();
 #endif
+        Service.Position?.TryMakeValid();
+        if (Service.Position == null) return;
 
-        Position?.CheckYValue();
-
-        if (Position == null) return;
-
-        CheckTeleport(Position.Value);
-        RunToPotision(Position.Value);
+        //CheckTeleport(Service.Position);
+        RunToPosition(Service.Position);
     }
 
-    private void CheckTeleport(DesiredPosition position)
+    private static void CheckTeleport(DesiredPosition position)
     {
         if (Svc.ClientState.TerritoryType == position.TerritoryId) return;
+        if (Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.Casting]) return;
 
-        var pt = new Vector2(position.Position.X, position.Position.Z);
-
-        var aetheryte = _aetheryteInfos
-            .Where(a => a.Aetheryte.Territory.Row == position.TerritoryId)
-            .OrderBy(a => (a.Location - pt).LengthSquared())
-            .FirstOrDefault();
+        var aetheryte = position.Aetheryte;
 
         //TODO: Better safe teleport!
-        aetheryte.Teleport();
+        aetheryte?.Teleport();
     }
 
     private PathState _state = PathState.None;
-    private void RunToPotision(DesiredPosition position)
+    private void RunToPosition(DesiredPosition position)
     {
-        var hasNaviPts = _runner.NaviPts.Count > 0;
+        if (!position.IsValid) return;
+
+        var hasNaviPts = Service.Runner.NaviPts.Count > 0;
 
         if (Svc.ClientState.TerritoryType != position.TerritoryId)
         {
@@ -167,9 +75,9 @@ public sealed class TakeMeEverywherePlugin : IDalamudPlugin, IDisposable
 
             //Arrived!
             if (Vector3.DistanceSquared(position.Position, Player.Object.Position)
-            < _runner.Precision * _runner.Precision)
+            < Service.Runner.Precision * Service.Runner.Precision)
             {
-                Position = null;
+                Service.Position = null;
                 return;
             }
         }
@@ -182,18 +90,18 @@ public sealed class TakeMeEverywherePlugin : IDalamudPlugin, IDisposable
 
             case PathState.None:
             case PathState.Fly:
-                FindGraphWithNodes(position, _runNodes);
+                FindGraphWithNodes(position, Service.RunNodes);
                 _state = PathState.Run;
                 return;
 
             case PathState.Run:
-                FindGraphWithNodes(position, _flyNodes);
+                FindGraphWithNodes(position, Service.FlyNodes);
                 _state = PathState.Fly;
                 return;
         }
     }
 
-    private void FindGraphWithNodes(DesiredPosition position, INode[] nodes)
+    private static void FindGraphWithNodes(DesiredPosition position, INode[] nodes)
     {
         if (nodes == null || nodes.Length == 0) return;
 
@@ -209,8 +117,10 @@ public sealed class TakeMeEverywherePlugin : IDalamudPlugin, IDisposable
         //TODO: better intro and outro.
         foreach (var edge in path.Edges)
         {
-            _runner.NaviPts.Enqueue(edge.End.Position);
+            Service.Runner.NaviPts.Enqueue(edge.End.Position);
         }
-        _runner.NaviPts.Enqueue(end);
+        Service.Runner.NaviPts.Enqueue(end);
+
+        Svc.Log.Info($"Run {Service.Runner.NaviPts.Count}");
     }
 }

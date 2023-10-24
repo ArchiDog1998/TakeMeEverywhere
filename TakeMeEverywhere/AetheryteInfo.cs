@@ -2,16 +2,22 @@
 using ECommons.GameHelpers;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using Lumina.Excel.GeneratedSheets;
-using System;
 using System.Numerics;
 
 namespace TakeMeEverywhere;
 
-internal readonly unsafe struct AetheryteInfo
+public unsafe struct AetheryteInfo
 {
+    static AetheryteInfo[]? _aetheryteInfos;
+    public static AetheryteInfo[] AetheryteInfos => _aetheryteInfos 
+        ??= Svc.Data.GetExcelSheet<Aetheryte>()?
+            .Select(a => new AetheryteInfo(a)).ToArray()
+            ?? Array.Empty<AetheryteInfo>();
+
     public readonly Aetheryte Aetheryte;
     public readonly Vector2 Location;
-    public bool IsAttuned
+
+    public readonly bool IsAttuned
     {
         get
         {
@@ -19,8 +25,6 @@ internal readonly unsafe struct AetheryteInfo
 
             var teleport = Telepo.Instance();
             if (teleport == null) return false;
-
-            if (!Player.Available) return true;
 
             teleport->UpdateAetheryteList();
             foreach (var info in teleport->TeleportList.Span)
@@ -34,27 +38,70 @@ internal readonly unsafe struct AetheryteInfo
         }
     }
 
+    public readonly bool IsAround
+    {
+        get
+        {
+            if (Svc.ClientState.TerritoryType != Aetheryte.Territory.Value?.RowId) return false;
+
+            var loc = new Vector2(Player.Object.Position.X, Player.Object.Position.Z);
+            return (loc - Location).LengthSquared() < 25;
+        }
+    }
+
+    private int _parentIndex = -1;
+    public AetheryteInfo ParentAetheryte
+    {
+        get
+        {
+            if (_parentIndex < 0)
+            {
+                var group = Aetheryte.AethernetGroup;
+                _parentIndex = Array.IndexOf(AetheryteInfos,
+                    AetheryteInfos.FirstOrDefault(a => a.Aetheryte.AethernetGroup == group && a.IsAttuned));
+
+                if (_parentIndex < 0)
+                {
+                    return this;
+                }
+            }
+
+            return AetheryteInfos[_parentIndex];
+        }
+    }
+
     public AetheryteInfo(Aetheryte aetheryte)
     {
         Aetheryte = aetheryte;
 
         var mapMarker = Svc.Data.GetExcelSheet<MapMarker>()?.FirstOrDefault(m => (m.DataType == (aetheryte.IsAetheryte ? 3 : 4) && m.DataKey == (aetheryte.IsAetheryte ? aetheryte.RowId : aetheryte.AethernetName.Value?.RowId)));
 
-        if (mapMarker != null)
-        {
-            var size = (aetheryte.Territory.Value?.Map.Value?.SizeFactor ?? 100f) / 100f;
-            Location = new Vector2(MarkerToMap(mapMarker.X, size), MarkerToMap(mapMarker.Y, size));
+        if (mapMarker == null) return;
 
-            //static float MarkerToMap(double coord, double scale) => (float)(2 * coord / scale + 100.9);
-            static float MarkerToMap(double coord, double scale) => (float)((coord - 1024.0) / scale);
+        var map = aetheryte.Territory.Value?.Map.Value;
+        var size = map?.SizeFactor ?? 100f;
+        Location = new Vector2(ConvertMapMarkerToMapCoordinate(mapMarker.X, size) + map?.OffsetX ?? 0,
+            ConvertMapMarkerToMapCoordinate(mapMarker.Y, size) + map?.OffsetY ?? 0);
+
+        static float ConvertMapMarkerToMapCoordinate(int pos, float scale)
+        {
+            float num = scale / 100f;
+            var rawPosition = (int)((float)(pos - 1024.0) / num * 1000f);
+            return ConvertRawPositionToMapCoordinate(rawPosition, scale);
+
+            static float ConvertRawPositionToMapCoordinate(int pos, float scale)
+            {
+                float num = scale / 100f;
+                return (float)((pos / 1000f * num + 1024.0) / 2048.0 * 41.0 / num + 1.0);
+            }
         }
     }
 
-    public void Teleport()
+    public readonly void Teleport()
     {
         if (Aetheryte == null)
         {
-            Svc.Chat.Print("Invalid target.");
+            Svc.Chat.Print("Invalid teleport target.");
             return;
         }
 
