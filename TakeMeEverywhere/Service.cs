@@ -27,16 +27,7 @@ internal static class Service
         Runner = XIVRunner.XIVRunner.Create(pluginInterface);
         Runner.Enable = true;
 
-        Painter.AddDrawings(_nodeDrawing, new PathDrawing());
-
-        //unsafe
-        //{
-        //    var marker = AgentMap.Instance()->FlagMapMarker;
-
-        //    var map = Svc.Data.GetExcelSheet<Map>()?.GetRow(marker.MapId);
-
-        //    Painter.AddDrawings(new Drawing3DCircularSector(new Vector3(marker.XFloat + map?.OffsetX ?? 0, 0, marker.YFloat + map?.OffsetY ?? 0), 0.5f, uint.MaxValue, 5));
-        //}
+        Painter.AddDrawings(_nodeDrawing, new PathDrawing(), new AetheryteDrawing());
 
         var aetheries = Svc.Data.GetExcelSheet<Aetheryte>();
 
@@ -149,6 +140,32 @@ internal class NodesDrawing : Drawing3DPoly
         }
         SubItems = result.ToArray();
 
+        base.UpdateOnFrame(painter);
+    }
+}
+
+internal class AetheryteDrawing : Drawing3DPoly
+{
+    public override void UpdateOnFrame(XIVPainter.XIVPainter painter)
+    {
+        SubItems = Array.Empty<IDrawing3D>();
+
+        if (!Player.Available) return;
+        var playerPosition = Player.Object.Position;
+
+        var result = new List<Drawing3DCircularSector>();
+
+        foreach (var aetheryte in AetheryteInfo.AetheryteInfos)
+        {
+            if (aetheryte.Aetheryte.Territory.Row != Svc.ClientState.TerritoryType) continue;
+
+            var pos = new Vector3(aetheryte.Location.X, 0, aetheryte.Location.Y);
+            if ((pos - playerPosition).LengthSquared() > 2500) continue;
+
+            result.Add(new Drawing3DCircularSector(pos, 0.1f, uint.MaxValue, 1));
+        }
+
+        SubItems = result.ToArray();
         base.UpdateOnFrame(painter);
     }
 }

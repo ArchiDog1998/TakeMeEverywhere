@@ -1,18 +1,28 @@
 ﻿using Dalamud.Memory;
+using ECommons.Automation;
 using ECommons.DalamudServices;
 using ECommons.GameFunctions;
 using ECommons.GameHelpers;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
+using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Common.Component.BGCollision;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.GeneratedSheets;
+using Roy_T.AStar.Graphs;
 using System.Numerics;
 
 namespace TakeMeEverywhere;
 
 public class DesiredPosition 
 {
+    public enum PathState
+    {
+        None,
+        Run,
+        Fly,
+    }
+
     public readonly uint TerritoryId;
 
     private Vector3 _position;
@@ -44,7 +54,6 @@ public class DesiredPosition
         TerritoryId = territory;
         Position = position;
     }
-
 
     public void TryMakeValid()
     {
@@ -78,26 +87,119 @@ public class DesiredPosition
 
         var map = Svc.Data.GetExcelSheet<Map>()?.GetRow(marker.MapId);
 
-        return new DesiredPosition(marker.TerritoryId,
-            new Vector3(marker.XFloat + map?.OffsetX ?? 0, float.NaN,
-            marker.YFloat + map?.OffsetY ?? 0));
+        var pos = new Vector3(marker.XFloat + map?.OffsetX ?? 0, float.NaN,
+            marker.YFloat + map?.OffsetY ?? 0);
+
+        return new DesiredPosition(marker.TerritoryId, pos);
     }
 
-    public void Goto()
+    private bool _isGoingTo = false;
+    public void GoTo()
     {
-        Teleport();
-        Run();
+        if (!Player.Available) return;
+
+        if (_isGoingTo) return;
+        _isGoingTo = true;
+
+        Task.Run(() =>
+        {
+            try
+            {
+                if (!IsValid)
+                {
+                    TryMakeValid();
+                }
+
+                if (Aetheryte.HasValue)
+                {
+                    Teleport(Aetheryte.Value);
+                }
+                else if (IsValid)
+                {
+                    RunToPosition();
+                }
+            }
+            catch (Exception ex)
+            {
+                Svc.Log.Warning(ex, "Failed to Go to the specific position");
+            }
+            finally
+            {
+                _isGoingTo = false;
+            }
+        });
     }
 
-    private void Run()
+    private PathState _state = PathState.None;
+    private void RunToPosition()
     {
+        var hasNaviPts = Service.Runner.NaviPts.Count > 0;
 
+        if (Svc.ClientState.TerritoryType != TerritoryId)
+        {
+            _state = PathState.None;
+            return;
+        }
+        else if (!hasNaviPts)
+        {
+            _state = PathState.None;
+
+            //Arrived!
+            if (Vector3.DistanceSquared(Position, Player.Object.Position)
+            < Service.Runner.Precision * Service.Runner.Precision)
+            {
+                Service.Position = null;
+                return;
+            }
+        }
+
+        switch (_state)
+        {
+            case PathState.Fly when XIVRunner.XIVRunner.IsFlying && hasNaviPts:
+            case PathState.Run when !XIVRunner.XIVRunner.IsFlying && hasNaviPts:
+                return;
+
+            case PathState.None:
+            case PathState.Fly:
+                FindGraphWithNodes(Service.RunNodes);
+                _state = PathState.Run;
+                return;
+
+            case PathState.Run:
+                FindGraphWithNodes(Service.FlyNodes);
+                _state = PathState.Fly;
+                return;
+        }
+
+        void FindGraphWithNodes(INode[] nodes)
+        {
+            if (nodes == null || nodes.Length == 0) return;
+
+            var start = Player.Object.Position;
+            var end = Position;
+
+            var startNode = nodes.MinBy(a => Vector3.DistanceSquared(start, a.Position));
+            var endNode = nodes.MinBy(a => Vector3.DistanceSquared(end, a.Position));
+
+            var finder = new Roy_T.AStar.Paths.PathFinder();
+            var path = finder.FindPath(startNode, endNode, float.MaxValue);
+
+            //TODO: better intro and outro.
+            //TODO: GO direct.
+            //TODO: for the case in and out are the same node.
+            foreach (var edge in path.Edges)
+            {
+                Service.Runner.NaviPts.Enqueue(edge.End.Position);
+            }
+            Service.Runner.NaviPts.Enqueue(end);
+        }
     }
 
-    private void Teleport()
+    private void Teleport(AetheryteInfo aetheryte)
     {
-        if (!Aetheryte.HasValue) return;
-        var aetheryte = Aetheryte.Value;
+        if (Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.Casting]) return;
+        if (Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.BetweenAreas]) return;
+        if (Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.BetweenAreas51]) return;
 
         //Teleported to the target.
         if (aetheryte.IsAround)
@@ -117,61 +219,88 @@ public class DesiredPosition
 
         if (parent.IsAround)
         {
-            FireToAetherNet();
+            FireToAetherNet(aetheryte);
         }
         else
         {
             parent.Teleport();
         }
+    }
 
-        unsafe void FireToAetherNet()
+    DateTime _nextClickingTime = DateTime.Now;
+    private unsafe void FireToAetherNet(AetheryteInfo aetheryte)
+    {
+        var playerPosition = Player.Object.Position;
+        var aetheryteObj = Svc.Objects
+            .Where(o => o.ObjectKind == Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Aetheryte
+                && o.IsTargetable)
+            .MinBy(o => (o.Position - playerPosition).LengthSquared());
+
+        if (aetheryteObj == null) return;
+
+        if ((aetheryteObj.Position - playerPosition).LengthSquared() > 6 * 6)
         {
-            if (!Player.Available) return;
-
-            var playerPosition = Player.Object.Position;
-            var aetheryteObj = Svc.Objects
-                .Where(o => o.ObjectKind == Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Aetheryte
-                    && o.IsTargetable)
-                .MinBy(o => (o.Position - playerPosition).LengthSquared());
-
-            if (aetheryteObj == null) return;
-
-            if ((aetheryteObj.Position - playerPosition).LengthSquared() > 6 * 6)
+            //Run to the aetheryte.
+            if (Service.Runner.NaviPts.Any())
             {
-                //Run to the aetheryte.
-                if((Service.Runner.NaviPts.Peek() - aetheryteObj.Position).LengthSquared() > 1)
+                if ((Service.Runner.NaviPts.Peek() - aetheryteObj.Position).LengthSquared() > 1)
                 {
                     Service.Runner.NaviPts.Clear();
-                    Service.Runner.NaviPts.Enqueue(aetheryteObj.Position);
                 }
             }
             else
             {
-                if (Service.Runner.NaviPts.Any())
+                Service.Runner.NaviPts.Enqueue(aetheryteObj.Position);
+            }
+
+        }
+        else if(_nextClickingTime < DateTime.Now) 
+        {
+            if (Service.Runner.NaviPts.Any())
+            {
+                Service.Runner.NaviPts.Clear();
+            }
+
+            //File ui
+            var addon = (AtkUnitBase*)Svc.GameGui.GetAddonByName("TelepotTown");
+            var menu = (AddonSelectString*)Svc.GameGui.GetAddonByName("SelectString");
+            if (addon != null)
+            {
+                for (int i = 1; i <= 52; i++)
                 {
-                    Service.Runner.NaviPts.Clear();
+                    var item = addon->UldManager.NodeList[16]->GetAsAtkComponentNode()->Component->UldManager.NodeList[i];
+                    var text = MemoryHelper.ReadSeString(&item->GetAsAtkComponentNode()->Component->UldManager.NodeList[3]->GetAsAtkTextNode()->NodeText).TextValue.Trim();
+                    if (text != aetheryte.Aetheryte.AethernetName.Value?.Name.RawString) continue;
+
+                    var aetherytes = AetheryteInfo.AetheryteInfos
+                        .Where(a => a.Aetheryte.AethernetGroup == aetheryte.Aetheryte.AethernetGroup)
+                        .ToArray();
+
+                    for (int index = 0; index < aetherytes.Length; index++)
+                    {
+                        if (aetherytes[index].Aetheryte.RowId != aetheryte.Aetheryte.RowId) continue;
+
+                        Svc.Log.Debug($"Called {index}");
+                        Callback.Fire(addon, true, 11, index);
+                        Callback.Fire(addon, true, 11, index);
+                        return;
+                    };
                 }
 
-                //File ui
-                var addon = (AtkUnitBase*) Svc.GameGui.GetAddonByName("TelepotTown");
-                var menu = (AtkUnitBase*) Svc.GameGui.GetAddonByName("SelectString");
-                if (addon != null)
-                {
-                    List<string> arr = new();
-                    for (int i = 1; i <= 52; i++)
-                    {
-                        var item = addon->UldManager.NodeList[16]->GetAsAtkComponentNode()->Component->UldManager.NodeList[i];
-                        var text = MemoryHelper.ReadSeString(&item->GetAsAtkComponentNode()->Component->UldManager.NodeList[3]->GetAsAtkTextNode()->NodeText).TextValue.Trim();
-                        if (text == "") break;
-                        arr.Add(text);
-                    }
-                }
-                //Open ui.
-                else
-                {
-                    Svc.Targets.Target = aetheryteObj;
-                    TargetSystem.Instance()->InteractWithObject(aetheryteObj.Struct(), false);
-                }
+                Aetheryte = null;
+                return;
+            }
+            else if(menu != null)
+            {
+                Callback.Fire((AtkUnitBase*)menu, true, 0);
+                _nextClickingTime = DateTime.Now.AddSeconds(0.5);
+            }
+            //Open ui.
+            else
+            {
+                Svc.Targets.Target = aetheryteObj;
+                TargetSystem.Instance()->InteractWithObject(aetheryteObj.Struct(), false);
+                _nextClickingTime = DateTime.Now.AddSeconds(0.5);
             }
         }
     }
