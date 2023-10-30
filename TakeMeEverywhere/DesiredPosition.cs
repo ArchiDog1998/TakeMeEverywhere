@@ -14,7 +14,7 @@ using System.Numerics;
 
 namespace TakeMeEverywhere;
 
-public class DesiredPosition 
+public class DesiredPosition
 {
     public enum PathState
     {
@@ -161,37 +161,70 @@ public class DesiredPosition
 
             case PathState.None:
             case PathState.Fly:
-                FindGraphWithNodes(Service.RunNodes);
-                _state = PathState.Run;
+                if (FindGraphWithNodes(Service.RunNodes))
+                {
+                    _state = PathState.Run;
+                }
+                else
+                {
+                    _state = PathState.None;
+                    Service.Position = null;
+                    Svc.Log.Info("Failed to calculate the path.");
+                }
                 return;
 
             case PathState.Run:
-                FindGraphWithNodes(Service.FlyNodes);
-                _state = PathState.Fly;
+                if (FindGraphWithNodes(Service.FlyNodes))
+                {
+                    _state = PathState.Fly;
+                }
+                else
+                {
+                    _state = PathState.None;
+                    Service.Position = null;
+                    Svc.Log.Info("Failed to calculate the path.");
+                }
                 return;
         }
 
-        void FindGraphWithNodes(INode[] nodes)
+        bool FindGraphWithNodes(INode[] nodes)
         {
-            if (nodes == null || nodes.Length == 0) return;
+            if (nodes == null || nodes.Length == 0) return false;
 
             var start = Player.Object.Position;
             var end = Position;
 
-            var startNode = nodes.MinBy(a => Vector3.DistanceSquared(start, a.Position));
-            var endNode = nodes.MinBy(a => Vector3.DistanceSquared(end, a.Position));
+            var startNode = nodes.OrderBy(a => Vector3.DistanceSquared(start, a.Position))
+                .FirstOrDefault(a => CanSee(start, a.Position));
+            var endNode = nodes.OrderBy(a => Vector3.DistanceSquared(end, a.Position))
+                .FirstOrDefault(a => CanSee(end, a.Position));
+
+            if (startNode == null) return false;
+            if (endNode == null) return false;
 
             var finder = new Roy_T.AStar.Paths.PathFinder();
             var path = finder.FindPath(startNode, endNode, float.MaxValue);
 
-            //TODO: better intro and outro.
-            //TODO: GO direct.
-            //TODO: for the case in and out are the same node.
             foreach (var edge in path.Edges)
             {
                 Service.Runner.NaviPts.Enqueue(edge.End.Position);
             }
             Service.Runner.NaviPts.Enqueue(end);
+
+            return true;
+
+            unsafe static bool CanSee(in Vector3 from, in Vector3 to)
+            {
+                int* unknown = stackalloc int[] { 0x2000, 0, 0x2000, 0 };
+
+                var ptA = from + Vector3.UnitY;
+                var ptB = to + Vector3.UnitY;
+                var dir = ptB - ptA;
+                RaycastHit hit = default;
+
+                return FFXIVClientStructs.FFXIV.Client.System.Framework.Framework.Instance()->BGCollisionModule
+                    ->RaycastEx(&hit, ptA, dir, dir.Length(), 1, unknown);
+            }
         }
     }
 
@@ -261,7 +294,7 @@ public class DesiredPosition
                 Service.Runner.NaviPts.Clear();
             }
 
-            //File ui
+            //Fire ui
             var addon = (AtkUnitBase*)Svc.GameGui.GetAddonByName("TelepotTown");
             var menu = (AddonSelectString*)Svc.GameGui.GetAddonByName("SelectString");
             if (addon != null)
@@ -283,6 +316,7 @@ public class DesiredPosition
                         Svc.Log.Debug($"Called {index}");
                         Callback.Fire(addon, true, 11, index);
                         Callback.Fire(addon, true, 11, index);
+                        _nextClickingTime = DateTime.Now.AddSeconds(0.5);
                         return;
                     };
                 }
