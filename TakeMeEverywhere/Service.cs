@@ -406,7 +406,7 @@ internal class AetheryteDrawing : Drawing3DPoly
 
             result.Add(new Drawing3DCircularSector(pos, 0.1f, uint.MaxValue, 1));
 
-            result.Add(new Drawing3DText($"{aetheryte.Aetheryte.PlaceName.Value?.Name.RawString ?? "Place"} - {aetheryte.Aetheryte.AethernetName.Value?.Name.RawString?? string.Empty}", pos)
+            result.Add(new Drawing3DText(aetheryte.Name, pos)
             {
                 Color = uint.MaxValue,
                 DrawWithHeight = false,

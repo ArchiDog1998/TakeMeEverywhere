@@ -17,6 +17,7 @@ public unsafe struct AetheryteInfo
 
     public readonly Aetheryte Aetheryte;
     public readonly Vector2 Location;
+    public readonly string Name => $"{Aetheryte.PlaceName.Value?.Name.RawString ?? "Place"} - {Aetheryte.AethernetName.Value?.Name.RawString ?? string.Empty}";
 
     public readonly bool IsAttuned
     {
@@ -47,7 +48,7 @@ public unsafe struct AetheryteInfo
 
             var loc = new Vector2(Player.Object.Position.X, Player.Object.Position.Z);
 
-            return (loc - Location).LengthSquared() < 64;
+            return (loc - Location).LengthSquared() < 400;
         }
     }
 
@@ -78,7 +79,21 @@ public unsafe struct AetheryteInfo
 
         var mapMarker = Svc.Data.GetExcelSheet<MapMarker>()?.FirstOrDefault(m => (m.DataType == (aetheryte.IsAetheryte ? 3 : 4) && m.DataKey == (aetheryte.IsAetheryte ? aetheryte.RowId : aetheryte.AethernetName.Value?.RowId)));
 
-        if (mapMarker == null) return;
+        if (mapMarker == null)
+        {
+            Location = aetheryte.RowId switch
+            {
+                _ => default,
+            };
+
+#if DEBUG
+            if(default == Location && aetheryte.AethernetGroup != 0)
+            {
+                Svc.Chat.PrintError($"The location of {Name}({aetheryte.RowId}) is missing!");
+            }
+#endif
+            return;
+        }
 
         var map = aetheryte.Territory.Value?.Map.Value;
         var size = map?.SizeFactor ?? 100f;
@@ -129,21 +144,23 @@ public unsafe struct AetheryteInfo
     }
 
     private static DateTime _nextTeleTime = DateTime.Now;
-    public readonly void Teleport()
+    public readonly bool Teleport()
     {
         if (ActionManager.Instance()->GetActionStatus(ActionType.Action, 5) != 0)
-            return;
+            return false;
 
         if (Aetheryte == null)
         {
             Svc.Chat.Print("Invalid teleport target.");
-            return;
+            return false;
         }
 
-        if (DateTime.Now < _nextTeleTime) return;
+        if (DateTime.Now < _nextTeleTime) return false;
         _nextTeleTime = DateTime.Now.AddSeconds(6);
 
-        if (!IsAttuned) Svc.Chat.Print($"Teleport to the unsafe port {Aetheryte.PlaceName.Value?.Name ?? string.Empty} - {Aetheryte.AethernetName.Value?.Name ?? string.Empty}");
+        if (!IsAttuned) Svc.Chat.PrintError($"Teleport to the unsafe port {Aetheryte.PlaceName.Value?.Name ?? string.Empty} - {Aetheryte.AethernetName.Value?.Name ?? string.Empty}");
         Telepo.Instance()->Teleport(Aetheryte.RowId, (byte)Aetheryte.SubRowId);
+
+        return true;
     }
 }

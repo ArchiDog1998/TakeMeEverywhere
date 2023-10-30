@@ -61,11 +61,18 @@ public sealed class TakeMeEverywherePlugin : IDalamudPlugin, IDisposable
 
     [Cmd("/takeme", "command for take me to somewhere")]
     [SubCmd("flag", "Take me to the map flag")]
+    [SubCmd("cancel", "Cancel to take me to the map flag")]
     internal void OnCommand(string _, string arguments)
     {
         if (arguments.StartsWith("flag"))
         {
             Service.Position ??= DesiredPosition.FromFlag();
+            return;
+        }
+        else if (arguments.StartsWith("cancel"))
+        {
+            Service.Position = null;
+            Service.Runner.NaviPts.Clear();
             return;
         }
 

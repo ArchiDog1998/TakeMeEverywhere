@@ -38,10 +38,21 @@ public class DesiredPosition
             var id = TerritoryId;
             var pt = new Vector2(value.X, value.Z);
 
-            Aetheryte = AetheryteInfo.AetheryteInfos
+            var closest = AetheryteInfo.AetheryteInfos
                 .Where(a => a.Aetheryte.Territory.Row == id)
-                .OrderBy(a => (a.Location - pt).LengthSquared())
+                .OrderBy(a => a.Location == default ? float.MaxValue : (a.Location - pt).LengthSquared())
                 .FirstOrDefault();
+
+            if (Svc.ClientState.TerritoryType == id && Player.Available
+                && (pt - closest.Location).LengthSquared()
+                > (pt - new Vector2(Player.Object.Position.X, Player.Object.Position.Z)).LengthSquared())
+            {
+                Aetheryte = null;
+            }
+            else
+            {
+                Aetheryte = closest;
+            }
         }
     }
 
@@ -203,9 +214,9 @@ public class DesiredPosition
             }
 
             var startNode = nodes.OrderBy(a => Vector3.DistanceSquared(start, a.Position))
-                .FirstOrDefault(a => CanSee(start, a.Position));
+                .FirstOrDefault();
             var endNode = nodes.OrderBy(a => Vector3.DistanceSquared(end, a.Position))
-                .FirstOrDefault(a => CanSee(end, a.Position));
+                .FirstOrDefault();
 
             if (startNode == null) return false;
             if (endNode == null) return false;
@@ -269,7 +280,7 @@ public class DesiredPosition
     }
 
     DateTime _nextClickingTime = DateTime.Now;
-    private unsafe void FireToAetherNet(AetheryteInfo aetheryte)
+    private unsafe bool FireToAetherNet(AetheryteInfo aetheryte)
     {
         var playerPosition = Player.Object.Position;
         var aetheryteObj = Svc.Objects
@@ -277,7 +288,7 @@ public class DesiredPosition
                 && o.IsTargetable)
             .MinBy(o => (o.Position - playerPosition).LengthSquared());
 
-        if (aetheryteObj == null) return;
+        if (aetheryteObj == null) return false;
 
         if ((aetheryteObj.Position - playerPosition).LengthSquared() > 6 * 6)
         {
@@ -325,12 +336,12 @@ public class DesiredPosition
                         Callback.Fire(addon, true, 11, index);
                         Callback.Fire(addon, true, 11, index);
                         _nextClickingTime = DateTime.Now.AddSeconds(0.5);
-                        return;
+                        return true;
                     };
                 }
 
                 Aetheryte = null;
-                return;
+                return true;
             }
             else if(menu != null)
             {
@@ -345,5 +356,6 @@ public class DesiredPosition
                 _nextClickingTime = DateTime.Now.AddSeconds(0.5);
             }
         }
+        return false;
     }
 }
