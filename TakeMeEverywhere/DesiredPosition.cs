@@ -161,7 +161,7 @@ public class DesiredPosition
 
             case PathState.None:
             case PathState.Fly:
-                if (FindGraphWithNodes(Service.RunNodes))
+                if (FindGraphWithNodes(false))
                 {
                     _state = PathState.Run;
                 }
@@ -174,7 +174,7 @@ public class DesiredPosition
                 return;
 
             case PathState.Run:
-                if (FindGraphWithNodes(Service.FlyNodes))
+                if (FindGraphWithNodes(true))
                 {
                     _state = PathState.Fly;
                 }
@@ -187,12 +187,20 @@ public class DesiredPosition
                 return;
         }
 
-        bool FindGraphWithNodes(INode[] nodes)
+        bool FindGraphWithNodes(bool isFly)
         {
+            var nodes = isFly ? Service.FlyNodes : Service.RunNodes;
+
             if (nodes == null || nodes.Length == 0) return false;
 
             var start = Player.Object.Position;
             var end = Position;
+
+            if(isFly && CanSee(start, end))
+            {
+                Service.Runner.NaviPts.Enqueue(end);
+                return true;
+            }
 
             var startNode = nodes.OrderBy(a => Vector3.DistanceSquared(start, a.Position))
                 .FirstOrDefault(a => CanSee(start, a.Position));

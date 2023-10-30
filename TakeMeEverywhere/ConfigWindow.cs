@@ -1,4 +1,5 @@
 ﻿using Dalamud.Interface.Windowing;
+using ECommons.Commands;
 using ECommons.DalamudServices;
 using ImGuiNET;
 
@@ -12,6 +13,10 @@ internal class ConfigWindow : Window
 
     public override void Draw()
     {
+        CmdManager.DrawHelp();
+
+        ImGui.Separator();
+
         if (ImGui.Button("Select or Add Node"))
         {
             DoOneThing(() =>

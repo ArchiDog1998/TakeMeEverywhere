@@ -44,17 +44,26 @@ internal static class Service
         }
     }
 
-    public static DesiredPosition? Position { get; set; }
+    private class RunNodesDrawing : NodesDrawing
+    {
+        public override INode[]? Nodes => RunNodes;
+    }
 
-    private static readonly NodesDrawing _nodeDrawing = new ();
+    private class FlyNodesDrawing : NodesDrawing
+    {
+        public override INode[]? Nodes => FlyNodes;
+    }
+
+    public static DesiredPosition? Position { get; set; }
 
     public static void Init(DalamudPluginInterface pluginInterface)
     {
         Painter = XIVPainter.XIVPainter.Create(pluginInterface, "Take Me Everywhere");
         Runner = XIVRunner.XIVRunner.Create(pluginInterface);
         Runner.Enable = true;
+        Runner.RunFastAction = RunFast;
 
-        var cir = new Drawing3DCircularSector(default, 0, ImGui.ColorConvertFloat4ToU32(new Vector4(0.5f, 0.9f, 0.1f, 0.7f)), 1);
+        var cir = new Drawing3DCircularSector(default, 0, ImGui.ColorConvertFloat4ToU32(new Vector4(0.5f, 0.9f, 0.1f, 0.7f)), 2);
 
         cir.UpdateEveryFrame = () =>
         {
@@ -62,10 +71,10 @@ internal static class Service
 
             var d = DateTime.Now.Millisecond / 1000f;
             var ratio = (float)DrawingExtensions.EaseFuncRemap(EaseFuncType.None, EaseFuncType.Cubic)(d);
-            cir.Radius = SelectedNode == null || !TakeMeEverywherePlugin.IsOpen ? 0 : ratio;
+            cir.Radius = SelectedNode == null || !TakeMeEverywherePlugin.IsOpen ? 0 : ratio * 0.5f;
         };
 
-        Painter.AddDrawings(_nodeDrawing, new PathDrawing(), cir);
+        Painter.AddDrawings(new RunNodesDrawing(), new FlyNodesDrawing(), new PathDrawing(), cir);
 
 #if DEBUG
         Painter.AddDrawings(new AetheryteDrawing());
@@ -75,12 +84,18 @@ internal static class Service
         TerritoryChanged(Svc.ClientState.TerritoryType);
     }
 
+    private static void RunFast()
+    {
+        //Something want to use for running fast!
+    }
+
     public static void Dispose()
     {
         Painter.Dispose();
         Runner.Dispose();
 
         Svc.ClientState.TerritoryChanged -= TerritoryChanged;
+        SaveTerritoryGraph();
     }
 
     public static void SelectOrAddNode()
@@ -141,6 +156,11 @@ internal static class Service
             item.Start.Disconnect(node);
             node.Disconnect(item.Start);
         }
+
+        if(node == SelectedNode)
+        {
+            SelectedNode = null;
+        }
     }
 
     public static void ConnectNode()
@@ -167,6 +187,8 @@ internal static class Service
 
         SelectedNode.Connect(node, 1);
         node.Connect(SelectedNode, 1);
+
+        SelectedNode = node;
     }
 
     public static void DisconnectNode()
@@ -259,8 +281,6 @@ internal static class Service
             var graph = JsonConvert.DeserializeObject<TerritoryGraph>(str);
             RunNodes = graph.Run.ToNodes();
             FlyNodes = graph.Fly.ToNodes();
-
-            _nodeDrawing.Nodes = RunNodes;
         }
         catch (Exception ex)
         {
@@ -298,9 +318,9 @@ internal static class Service
     }
 }
 
-internal class NodesDrawing : Drawing3DPoly
+internal abstract class NodesDrawing : Drawing3DPoly
 {
-    public INode[]? Nodes { get; set; }
+    public abstract INode[]? Nodes { get; }
 
     private static readonly uint color = uint.MaxValue;
 
@@ -375,7 +395,7 @@ internal class AetheryteDrawing : Drawing3DPoly
         if (!Player.Available) return;
         var playerPosition = Player.Object.Position;
 
-        var result = new List<Drawing3DCircularSector>();
+        var result = new List<IDrawing3D>();
 
         foreach (var aetheryte in AetheryteInfo.AetheryteInfos)
         {
@@ -385,6 +405,12 @@ internal class AetheryteDrawing : Drawing3DPoly
             if ((pos - playerPosition).LengthSquared() > 2500) continue;
 
             result.Add(new Drawing3DCircularSector(pos, 0.1f, uint.MaxValue, 1));
+
+            result.Add(new Drawing3DText($"{aetheryte.Aetheryte.PlaceName.Value?.Name.RawString ?? "Place"} - {aetheryte.Aetheryte.AethernetName.Value?.Name.RawString?? string.Empty}", pos)
+            {
+                Color = uint.MaxValue,
+                DrawWithHeight = false,
+            });
         }
 
         SubItems = result.ToArray();

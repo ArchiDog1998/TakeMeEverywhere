@@ -1,4 +1,5 @@
-﻿using Dalamud.Plugin;
+﻿using Dalamud.Interface.Windowing;
+using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using ECommons;
 using ECommons.Automation;
@@ -10,6 +11,8 @@ namespace TakeMeEverywhere;
 public sealed class TakeMeEverywherePlugin : IDalamudPlugin, IDisposable
 {
     private readonly ConfigWindow _window;
+
+    private readonly WindowSystem _windowSystem;
 
     private static TakeMeEverywherePlugin? plugin;
     public static bool IsOpen => plugin?._window.IsOpen ?? false;
@@ -24,10 +27,13 @@ public sealed class TakeMeEverywherePlugin : IDalamudPlugin, IDisposable
 
         _window = new();
 
+        _windowSystem = new();
+        _windowSystem.AddWindow(_window);
+
         Svc.Framework.Update += Update;
 
         Svc.PluginInterface.UiBuilder.OpenConfigUi += OnOpenConfigUi;
-        Svc.PluginInterface.UiBuilder.Draw += _window.Draw;
+        Svc.PluginInterface.UiBuilder.Draw += _windowSystem.Draw;
 
         Callback.InstallHook();
     }
@@ -37,7 +43,7 @@ public sealed class TakeMeEverywherePlugin : IDalamudPlugin, IDisposable
         Svc.Framework.Update -= Update;
 
         Svc.PluginInterface.UiBuilder.OpenConfigUi -= OnOpenConfigUi;
-        Svc.PluginInterface.UiBuilder.Draw -= _window.Draw;
+        Svc.PluginInterface.UiBuilder.Draw -= _windowSystem.Draw;
 
         Service.Dispose();
         ECommonsMain.Dispose();
