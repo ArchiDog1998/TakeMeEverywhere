@@ -1,6 +1,7 @@
 ﻿using Dalamud.Interface.Windowing;
 using ECommons.Commands;
 using ECommons.DalamudServices;
+using ECommons.GameHelpers;
 using ImGuiNET;
 
 namespace TakeMeEverywhere;
@@ -13,6 +14,13 @@ internal class ConfigWindow : Window
 
     public override void Draw()
     {
+#if DEBUG
+        if(Player.Available)
+        {
+            ImGui.Text($"Pos: {Player.Object.Position.X}, {Player.Object.Position.Z}");
+        }
+#endif
+
         CmdManager.DrawHelp();
 
         ImGui.Separator();

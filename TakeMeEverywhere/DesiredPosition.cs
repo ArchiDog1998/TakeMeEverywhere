@@ -9,7 +9,6 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Common.Component.BGCollision;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.GeneratedSheets;
-using Roy_T.AStar.Graphs;
 using System.Numerics;
 
 namespace TakeMeEverywhere;

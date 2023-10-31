@@ -83,13 +83,48 @@ public unsafe struct AetheryteInfo
         {
             Location = aetheryte.RowId switch
             {
+                31 => new Vector2(128.7f, -302.1f),
+                32 => new Vector2(448.8f, 198.6f),
+                54 => new Vector2(-304.4f, -280.0f),
+                94 => new Vector2(25.0f, 96.1f),
+
+                45 => new Vector2(-2.6f, 147.0f),
+                46 => new Vector2(-26.4f, 102.8f),
+                93 => new Vector2(-18.7f, -8.5f),
+
+                38 => new Vector2(447.6f, 167.3f),
+                39 => new Vector2(-124.4f, 311.5f),
+                40 => new Vector2(37.2f, 577.2f),
+                95 => new Vector2(-17.4f, -9.1f),
+
+                91 => new Vector2(-534.4f, -488.0f),
+                92 => new Vector2(-221.5f, -600.1f),
+
+                88 => new Vector2(-163.1f, -321.4f),
+
+                123 => new Vector2(426.7f, -532.5f),
+                124 => new Vector2(-653.2f, -786.7f),
+
+                120 => new Vector2(843.4f, 846.4f),
+                126 => new Vector2(-55.2f, 44.7f),
+
+                131 => new Vector2(-484.6f, 537.3f),
+                163 => new Vector2(-44.2f, -40.0f),
+
+                156 => new Vector2(826.5f, 407.7f),
+
+                160 => new Vector2(172.9f, 851.0f),
+
+                190 => new Vector2(-28.7f, -811.9f),
+
+                197 => new Vector2(520.3f, -624.3f),
                 _ => default,
             };
 
 #if DEBUG
             if(default == Location && aetheryte.AethernetGroup != 0)
             {
-                Svc.Chat.PrintError($"The location of {Name}({aetheryte.RowId}) is missing!");
+                Svc.Chat.PrintError($"The location of {Name} ({aetheryte.RowId}) GRP({aetheryte.AethernetGroup}) is missing!");
             }
 #endif
             return;
