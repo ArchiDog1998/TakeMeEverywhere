@@ -199,9 +199,9 @@ public class DesiredPosition
 
         bool FindGraphWithNodes(bool isFly)
         {
-            var nodes = isFly ? Service.FlyNodes : Service.RunNodes;
+            var nodes = isFly ? Service.FlyNodes.Nodes : Service.RunNodes.Nodes;
 
-            if (nodes == null || nodes.Length == 0) return false;
+            if (nodes == null || !nodes.Any()) return false;
 
             Service.Runner.NaviPts.Clear();
 

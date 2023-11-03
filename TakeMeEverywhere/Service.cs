@@ -17,7 +17,19 @@ internal static class Service
     public static XIVPainter.XIVPainter Painter { get; private set; } = null!;
     public static XIVRunner.XIVRunner Runner { get; private set; } = null!;
 
-    public static INode? SelectedNode { get; private set; } = null;
+    private static INode? _selectedNode = null;
+    public static INode? SelectedNode
+    {
+        get => _selectedNode;
+        private set
+        {
+            if (_selectedNode == value) return;
+            _selectedNode = value;
+
+            IsSelectedNodeFly = XIVRunner.XIVRunner.IsFlying;
+        }
+    }
+    public static bool IsSelectedNodeFly { get; private set; } = false;
     public static PathGraph RunNodes { get; private set; } = new();
     public static PathGraph FlyNodes { get; private set; } = new();
 
@@ -78,6 +90,34 @@ internal static class Service
         SaveTerritoryGraph();
     }
 
+    private static DateTime _lastRecordingTime = DateTime.Now;
+    private static bool _isRecording = false;
+    private static readonly TimeSpan WaitingTimeSpan = TimeSpan.FromSeconds(0.1);
+    public static void AutoRecordPath()
+    {
+        if (!TakeMeEverywherePlugin.IsAutoRecording) return;
+
+        if (DateTime.Now - _lastRecordingTime < WaitingTimeSpan) return;
+        _lastRecordingTime = DateTime.Now;
+
+        if (_isRecording) return;
+        _isRecording = true;
+
+        Task.Run(() =>
+        {
+            if (SelectedNode == null)
+            {
+                SelectOrAddNode();
+            }
+            else if (!ConnectNode())
+            {
+                SelectOrAddNode();
+            }
+
+            _isRecording = false;
+        });
+    }
+
     public static void SelectOrAddNode()
     {
         if (!Player.Available) return;
@@ -130,31 +170,30 @@ internal static class Service
         }
     }
 
-    public static void ConnectNode()
+    public static bool ConnectNode()
     {
-        if (SelectedNode == null) return;
-        if (!Player.Available) return;
+        if (SelectedNode == null) return false;
+        if (!Player.Available) return false;
         var pos = Player.Object.Position;
 
         INode node;
-        if (FlyNodes.GetClosest(SelectedNode.Position) != null
-            && XIVRunner.XIVRunner.IsFlying)
+        if (IsSelectedNodeFly && XIVRunner.XIVRunner.IsFlying)
         {
             node = FlyNodes.GetClosest(pos) ?? new Node(pos);
             FlyNodes.Add(node, SelectedNode);
         } 
-        else if (RunNodes.GetClosest(SelectedNode.Position) != null
-            && !XIVRunner.XIVRunner.IsFlying)
+        else if (!IsSelectedNodeFly && !XIVRunner.XIVRunner.IsFlying)
         {
             node = RunNodes.GetClosest(pos) ?? new Node(pos);
             RunNodes.Add(node, SelectedNode);
         }
         else
         {
-            return;
+            return false;
         }
 
         SelectedNode = node;
+        return true;
     }
 
     public static void DisconnectNode()
@@ -163,16 +202,9 @@ internal static class Service
         if (!Player.Available) return;
         var pos = Player.Object.Position;
 
-        INode? node = null;
-
-        if (FlyNodes.GetClosest(SelectedNode.Position) != null)
-        {
-            node = FlyNodes.GetClosest(pos);
-        }
-        else if (RunNodes.GetClosest(SelectedNode.Position) != null)
-        {
-            node = RunNodes.GetClosest(pos);
-        }
+        INode? node = IsSelectedNodeFly
+            ? FlyNodes.GetClosest(pos)
+            : RunNodes.GetClosest(pos);
 
         if (node == null) return;
 

@@ -8,6 +8,8 @@ namespace TakeMeEverywhere;
 
 internal class ConfigWindow : Window
 {
+    public bool IsAutoRecording = true;
+
     public ConfigWindow() : base("Take me EveryWhere", ImGuiWindowFlags.None, false)
     {
     }
@@ -20,10 +22,11 @@ internal class ConfigWindow : Window
             ImGui.Text($"Pos: {Player.Object.Position.X}, {Player.Object.Position.Z}");
         }
 #endif
-
         CmdManager.DrawHelp();
 
         ImGui.Separator();
+
+        ImGui.Checkbox("Auto Recording", ref IsAutoRecording);
 
         if (ImGui.Button("Select or Add Node"))
         {

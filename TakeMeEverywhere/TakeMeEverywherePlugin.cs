@@ -2,10 +2,8 @@
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using ECommons;
-using ECommons.Automation;
 using ECommons.Commands;
 using ECommons.DalamudServices;
-using ECommons.GameHelpers;
 
 namespace TakeMeEverywhere;
 
@@ -17,6 +15,7 @@ public sealed class TakeMeEverywherePlugin : IDalamudPlugin, IDisposable
 
     private static TakeMeEverywherePlugin? plugin;
     public static bool IsOpen => plugin?._window.IsOpen ?? false;
+    public static bool IsAutoRecording => plugin?._window.IsAutoRecording ?? false;
 
     public TakeMeEverywherePlugin(DalamudPluginInterface pluginInterface)
     {
@@ -58,10 +57,16 @@ public sealed class TakeMeEverywherePlugin : IDalamudPlugin, IDisposable
         if (!Service.Runner.MovingValid)
         {
             Service.Position = null;
+            return;
+        }
+
+        if(Service.Position == null)
+        {
+            Service.AutoRecordPath();
         }
         else
         {
-            Service.Position?.GoTo();
+            Service.Position.GoTo();
         }
     }
 
