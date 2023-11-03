@@ -35,8 +35,6 @@ public sealed class TakeMeEverywherePlugin : IDalamudPlugin, IDisposable
 
         Svc.PluginInterface.UiBuilder.OpenConfigUi += OnOpenConfigUi;
         Svc.PluginInterface.UiBuilder.Draw += _windowSystem.Draw;
-
-        Callback.InstallHook();
     }
 
     public void Dispose()
@@ -57,7 +55,14 @@ public sealed class TakeMeEverywherePlugin : IDalamudPlugin, IDisposable
 
     private void Update(IFramework framework)
     {
-        Service.Position?.GoTo();
+        if (!Service.Runner.MovingValid)
+        {
+            Service.Position = null;
+        }
+        else
+        {
+            Service.Position?.GoTo();
+        }
     }
 
     [Cmd("/takeme", "command for take me to somewhere")]

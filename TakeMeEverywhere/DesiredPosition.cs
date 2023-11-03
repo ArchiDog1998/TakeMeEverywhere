@@ -203,10 +203,12 @@ public class DesiredPosition
 
             if (nodes == null || nodes.Length == 0) return false;
 
+            Service.Runner.NaviPts.Clear();
+
             var start = Player.Object.Position;
             var end = Position;
 
-            if(isFly && CanSee(start, end))
+            if (isFly && CanSee(start, end))
             {
                 Service.Runner.NaviPts.Enqueue(end);
                 return true;
@@ -240,7 +242,7 @@ public class DesiredPosition
                 var dir = ptB - ptA;
                 RaycastHit hit = default;
 
-                return FFXIVClientStructs.FFXIV.Client.System.Framework.Framework.Instance()->BGCollisionModule
+                return !FFXIVClientStructs.FFXIV.Client.System.Framework.Framework.Instance()->BGCollisionModule
                     ->RaycastEx(&hit, ptA, dir, dir.Length(), 1, unknown);
             }
         }

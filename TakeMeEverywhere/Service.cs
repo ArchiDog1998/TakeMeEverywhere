@@ -18,40 +18,17 @@ internal static class Service
     public static XIVRunner.XIVRunner Runner { get; private set; } = null!;
 
     public static INode? SelectedNode { get; private set; } = null;
-    public static INode[] RunNodes { get; private set; } = Array.Empty<INode>();
-    public static INode[] FlyNodes { get; private set; } = Array.Empty<INode>();
-
-    public static INode[] SelectedNodes
-    {
-        get
-        {
-            if (SelectedNodes == null) return Array.Empty<INode>();
-            if (RunNodes.Contains(SelectedNode)) return RunNodes;
-            if (FlyNodes.Contains(SelectedNode)) return FlyNodes;
-            return Array.Empty<INode>();
-        }
-        set
-        {
-            if (SelectedNodes == null) return;
-            if (RunNodes.Contains(SelectedNode))
-            {
-                RunNodes = value;
-            }
-            else if (FlyNodes.Contains(SelectedNode))
-            {
-                FlyNodes = value;
-            }
-        }
-    }
+    public static PathGraph RunNodes { get; private set; } = new();
+    public static PathGraph FlyNodes { get; private set; } = new();
 
     private class RunNodesDrawing : NodesDrawing
     {
-        public override INode[]? Nodes => RunNodes;
+        public override IEnumerable<INode> Nodes => RunNodes.Nodes;
     }
 
     private class FlyNodesDrawing : NodesDrawing
     {
-        public override INode[]? Nodes => FlyNodes;
+        public override IEnumerable<INode> Nodes => FlyNodes.Nodes;
     }
 
     public static DesiredPosition? Position { get; set; }
@@ -63,7 +40,10 @@ internal static class Service
         Runner.Enable = true;
         Runner.RunFastAction = RunFast;
 
-        var cir = new Drawing3DCircularSector(default, 0, ImGui.ColorConvertFloat4ToU32(new Vector4(0.5f, 0.9f, 0.1f, 0.7f)), 2);
+        var cir = new Drawing3DCircularSector(default, 0, ImGui.ColorConvertFloat4ToU32(new Vector4(0.5f, 0.9f, 0.1f, 0.7f)), 2)
+        {
+            DrawWithHeight = false,
+        };
 
         cir.UpdateEveryFrame = () =>
         {
@@ -103,8 +83,9 @@ internal static class Service
         if (!Player.Available) return;
         var pos = Player.Object.Position;
 
-        SelectedNode = GetClosestNodeFromNodes(RunNodes, pos)
-            ?? GetClosestNodeFromNodes(FlyNodes, pos);
+        SelectedNode = XIVRunner.XIVRunner.IsFlying 
+            ? FlyNodes.GetClosest(pos)
+            : RunNodes.GetClosest(pos);
 
         if (SelectedNode != null) return;
 
@@ -112,12 +93,14 @@ internal static class Service
 
         if (XIVRunner.XIVRunner.IsFlying)
         {
-            FlyNodes = FlyNodes.Append(node).ToArray();
+            FlyNodes.Add(node);
         }
         else
         {
-            RunNodes = RunNodes.Append(node).ToArray();
+            RunNodes.Add(node);
         }
+
+        SelectedNode = node;
     }
 
     public static void DeleteNode()
@@ -125,37 +108,21 @@ internal static class Service
         if (!Player.Available) return;
         var pos = Player.Object.Position;
 
-        var node = GetClosestNodeFromNodes(RunNodes, pos);
+        var node = RunNodes.GetClosest(pos);
         if (node != null)
         {
-            var list = RunNodes.ToList();
-            list.Remove(node);
-            RunNodes = list.ToArray();
+            RunNodes.Remove(node);
         }
         else
         {
-            node = GetClosestNodeFromNodes(FlyNodes, pos);
+            node = FlyNodes.GetClosest(pos);
             if(node != null)
             {
-                var list = FlyNodes.ToList();
-                list.Remove(node);
-                FlyNodes = list.ToArray();
+                FlyNodes.Remove(node);
             }
         }
 
         if (node == null) return;
-
-        foreach (var item in node.Outgoing)
-        {
-            item.End.Disconnect(node);
-            node.Disconnect(item.End);
-        }
-
-        foreach (var item in node.Incoming)
-        {
-            item.Start.Disconnect(node);
-            node.Disconnect(item.Start);
-        }
 
         if(node == SelectedNode)
         {
@@ -170,23 +137,22 @@ internal static class Service
         var pos = Player.Object.Position;
 
         INode node;
-        if (FlyNodes.Contains(SelectedNode))
+        if (FlyNodes.GetClosest(SelectedNode.Position) != null
+            && XIVRunner.XIVRunner.IsFlying)
         {
-            node = GetClosestNodeFromNodes(FlyNodes, pos) ?? new Node(pos);
-            FlyNodes = FlyNodes.Append(node).ToArray();
+            node = FlyNodes.GetClosest(pos) ?? new Node(pos);
+            FlyNodes.Add(node, SelectedNode);
         } 
-        else if (RunNodes.Contains(SelectedNode))
+        else if (RunNodes.GetClosest(SelectedNode.Position) != null
+            && !XIVRunner.XIVRunner.IsFlying)
         {
-            node = GetClosestNodeFromNodes(RunNodes, pos) ?? new Node(pos);
-            RunNodes = RunNodes.Append(node).ToArray();
+            node = RunNodes.GetClosest(pos) ?? new Node(pos);
+            RunNodes.Add(node, SelectedNode);
         }
         else
         {
             return;
         }
-
-        SelectedNode.Connect(node, 1);
-        node.Connect(SelectedNode, 1);
 
         SelectedNode = node;
     }
@@ -199,28 +165,19 @@ internal static class Service
 
         INode? node = null;
 
-        if (FlyNodes.Contains(SelectedNode))
+        if (FlyNodes.GetClosest(SelectedNode.Position) != null)
         {
-            node = GetClosestNodeFromNodes(FlyNodes, pos);
+            node = FlyNodes.GetClosest(pos);
         }
-        else if (RunNodes.Contains(SelectedNode))
+        else if (RunNodes.GetClosest(SelectedNode.Position) != null)
         {
-            node = GetClosestNodeFromNodes(RunNodes, pos);
+            node = RunNodes.GetClosest(pos);
         }
 
         if (node == null) return;
 
         SelectedNode.Disconnect(node);
         node.Disconnect(SelectedNode);
-    }
-
-    private static INode? GetClosestNodeFromNodes(IEnumerable<INode>? nodes, Vector3 pos)
-    {
-        var node = nodes?.MinBy(n => (n.Position - pos).LengthSquared());
-        if (node == null) return null;
-        if ((node.Position - pos).LengthSquared() > 1) return null;
-
-        return node;
     }
 
     public static async void SaveTerritoryGraph()
@@ -237,8 +194,8 @@ internal static class Service
 
         var str = JsonConvert.SerializeObject(new TerritoryGraph()
         {
-            Run = new GraphDto(RunNodes),
-            Fly = new GraphDto(FlyNodes),
+            Run = new GraphDto(RunNodes.Nodes),
+            Fly = new GraphDto(FlyNodes.Nodes),
         }, Formatting.Indented);
 
         await File.WriteAllTextAsync(file, str);
@@ -247,11 +204,12 @@ internal static class Service
     private static async void TerritoryChanged(ushort obj)
     {
         Runner.NaviPts.Clear();
+        RunNodes.Clear();
+        FlyNodes.Clear();
 
         var name = Svc.Data.GetExcelSheet<TerritoryType>()?.GetRow(obj)?.Name.RawString;
         if (string.IsNullOrEmpty(name))
         {
-            RunNodes = Array.Empty<INode>();
             return;
         }
 
@@ -265,12 +223,10 @@ internal static class Service
             catch (Exception ex)
             {
                 Svc.Log.Information(ex, "Failed to download territory graph.");
-                RunNodes = FlyNodes = Array.Empty<INode>();
                 return;
             }
             if (!File.Exists(file))
             {
-                RunNodes = FlyNodes = Array.Empty<INode>();
                 return;
             }
         }
@@ -279,13 +235,12 @@ internal static class Service
         try
         {
             var graph = JsonConvert.DeserializeObject<TerritoryGraph>(str);
-            RunNodes = graph.Run.ToNodes();
-            FlyNodes = graph.Fly.ToNodes();
+            RunNodes.Load( graph.Run.ToNodes());
+            FlyNodes.Load(graph.Fly.ToNodes());
         }
         catch (Exception ex)
         {
             Svc.Log.Information(ex, "Failed to load territory graph.");
-            RunNodes = FlyNodes = Array.Empty<INode>();
         }
 
         static async Task DownloadFile(string name, string file)
@@ -320,7 +275,7 @@ internal static class Service
 
 internal abstract class NodesDrawing : Drawing3DPoly
 {
-    public abstract INode[]? Nodes { get; }
+    public abstract IEnumerable<INode> Nodes { get; }
 
     private static readonly uint color = uint.MaxValue;
 
@@ -328,7 +283,6 @@ internal abstract class NodesDrawing : Drawing3DPoly
     {
         SubItems = Array.Empty<IDrawing3D>();
 
-        if (Nodes == null) return;
         if (!TakeMeEverywherePlugin.IsOpen) return;
 
         if(!Player.Available) return;
@@ -340,12 +294,16 @@ internal abstract class NodesDrawing : Drawing3DPoly
             var pos = node.Position;
             if ((pos - playerPosition).LengthSquared() > 2500) continue;
 
-            result.Add(new Drawing3DCircularSector(pos, 0.1f, color, 1));
+            result.Add(new Drawing3DCircularSector(pos, 0.1f, color, 1)
+            {
+                DrawWithHeight = false,
+            });
             foreach (var outgoing in node.Outgoing)
             {
                 result.Add(new Drawing3DPolyline(new Vector3[] { pos, outgoing.End.Position }, color, 1)
                 {
                     IsFill = false,
+                    DrawWithHeight = false,
                 });
             }
         }
@@ -374,7 +332,10 @@ internal class PathDrawing : Drawing3DPoly
         {
             if ((pt - playerPosition).LengthSquared() <= 2500)
             {
-                result.Add(new(lastPosition, pt, 0.5f, color, 1));
+                result.Add(new(lastPosition, pt, 0.5f, color, 1)
+                {
+                    DrawWithHeight = false,
+                });
             }
 
             lastPosition = pt;
