@@ -105,16 +105,63 @@ internal static class Service
 
         Task.Run(() =>
         {
-            if (SelectedNode == null)
+            try
             {
-                SelectOrAddNode();
-            }
-            else if (!ConnectNode())
-            {
-                SelectOrAddNode();
-            }
+                if (SelectedNode == null)
+                {
+                    SelectOrAddNode();
+                    return;
+                }
 
-            _isRecording = false;
+                if (!Player.Available) return;
+                var pos = Player.Object.Position;
+
+                if (IsSelectedNodeFly && XIVRunner.XIVRunner.IsFlying)
+                {
+                    var node = FlyNodes.GetClosest(pos);
+                    if (node == SelectedNode)
+                    {
+                        return;
+                    }
+                    else if (node != null)
+                    {
+                        FlyNodes.Add(node, SelectedNode);
+                        SelectedNode = node;
+                    }
+                    else if ((SelectedNode.Position - pos).LengthSquared() > 9)
+                    {
+                        FlyNodes.Add(node = new Node(pos), SelectedNode);
+                        SelectedNode = node;
+                    }
+                }
+                else if (!IsSelectedNodeFly && !XIVRunner.XIVRunner.IsFlying)
+                {
+                    var node = RunNodes.GetClosest(pos);
+                    if (node == SelectedNode)
+                    {
+                        return;
+                    }
+                    else if (node != null)
+                    {
+                        RunNodes.Add(node, SelectedNode);
+                        SelectedNode = node;
+
+                    }
+                    else if ((SelectedNode.Position - pos).LengthSquared() > 9)
+                    {
+                        RunNodes.Add(node = new Node(pos), SelectedNode);
+                        SelectedNode = node;
+                    }
+                }
+                else
+                {
+                    SelectOrAddNode();
+                }
+            }
+            finally
+            {
+                _isRecording = false;
+            }
         });
     }
 
@@ -170,10 +217,10 @@ internal static class Service
         }
     }
 
-    public static bool ConnectNode()
+    public static void ConnectNode()
     {
-        if (SelectedNode == null) return false;
-        if (!Player.Available) return false;
+        if (SelectedNode == null) return;
+        if (!Player.Available) return;
         var pos = Player.Object.Position;
 
         INode node;
@@ -189,11 +236,10 @@ internal static class Service
         }
         else
         {
-            return false;
+            return;
         }
 
         SelectedNode = node;
-        return true;
     }
 
     public static void DisconnectNode()

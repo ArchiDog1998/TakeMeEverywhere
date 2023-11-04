@@ -21,7 +21,7 @@ internal class PathGraph
 
     public void Add(INode node, params INode[] connectedNodes)
     {
-        if (!_tree.Add(GetPt(node.Position), node)) return;
+        _tree.Add(GetPt(node.Position), node);
 
         foreach (var connectedNode in connectedNodes)
         {

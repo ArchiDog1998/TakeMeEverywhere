@@ -3,6 +3,7 @@ using ECommons.Automation;
 using ECommons.DalamudServices;
 using ECommons.GameFunctions;
 using ECommons.GameHelpers;
+using ECommons.MathHelpers;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
@@ -57,6 +58,8 @@ public class DesiredPosition
 
     public bool IsValid => !float.IsNaN(Position.Y);
 
+    public bool _isPrecise = false;
+
     public AetheryteInfo? Aetheryte;
 
     public DesiredPosition(uint territory, Vector3 position)
@@ -67,13 +70,27 @@ public class DesiredPosition
 
     public void TryMakeValid()
     {
+        if (Svc.ClientState?.TerritoryType != TerritoryId) return;
+        if (!Player.Available) return;
+
+        if (_isPrecise) return;
+
+        var inPreciseRange = (Player.Object.Position.ToVector2() - Position.ToVector2()).LengthSquared() < 900;
+
         if (IsValid)
         {
+            if (inPreciseRange)
+            {
+                _position.Y = Raycast(Position);
+                _isPrecise = true;
+                _state = PathState.None;
+            }
             return;
         }
-        if (Svc.ClientState?.TerritoryType != TerritoryId) return;
-
-        _position.Y = Raycast(Position);
+        else
+        {
+            _position.Y = Raycast(Position);
+        }
 
         unsafe static float Raycast(in Vector3 point)
         {
@@ -115,7 +132,7 @@ public class DesiredPosition
         {
             try
             {
-                if (!IsValid)
+                if (!IsValid || !_isPrecise)
                 {
                     TryMakeValid();
                 }
