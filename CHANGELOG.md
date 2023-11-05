@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1](https://github.com/ArchiDog1998/TakeMeEverywhere/compare/v1.0.0...v1.0.1) (2023-11-05)
+
+
+### Bug Fixes
+
+* better recording. ([2796824](https://github.com/ArchiDog1998/TakeMeEverywhere/commit/279682463cd6466bde98a99c2477c550e09f8b7c))
+* fixed auto recording. ([0ead83e](https://github.com/ArchiDog1998/TakeMeEverywhere/commit/0ead83e579e655c0de873eb757ffc9a05ec6c286))
+
 ## 1.0.0 (2023-11-05)
 
 
