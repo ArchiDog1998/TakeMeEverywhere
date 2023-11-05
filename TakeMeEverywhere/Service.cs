@@ -105,6 +105,13 @@ internal static class Service
         if (_isLoadingTerritory) return;
 
         if (!TakeMeEverywherePlugin.IsAutoRecording) return;
+
+        ////No recording in duty!
+        //if (Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.BoundByDuty]
+        //    || Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.BoundByDuty95]
+        //    || Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.BoundToDuty97]
+        //    || Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.BoundByDuty56]) return;
+
         if (Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.BetweenAreas]
             || Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.BetweenAreas51]) return;
 
@@ -141,7 +148,7 @@ internal static class Service
                     {
                         return;
                     }
-                    else if (node != null && (node.Position - pos).LengthSquared() < 9)
+                    else if (node != null && (node.Position - SelectedNode.Position).LengthSquared() < 9)
                     {
                         FlyNodes.Add(node, SelectedNode);
                         SelectedNode = node;
@@ -167,7 +174,7 @@ internal static class Service
                     {
                         return;
                     }
-                    else if (node != null && (node.Position - pos).LengthSquared() < 9)
+                    else if (node != null && (node.Position - SelectedNode.Position).LengthSquared() < 9)
                     {
                         RunNodes.Add(node, SelectedNode);
                         SelectedNode = node;
