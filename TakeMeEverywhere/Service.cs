@@ -36,11 +36,19 @@ internal static class Service
     private class RunNodesDrawing : NodesDrawing
     {
         public override IEnumerable<INode> Nodes => RunNodes.Nodes;
+        public RunNodesDrawing()
+        {
+            Color = uint.MaxValue;
+        }
     }
 
     private class FlyNodesDrawing : NodesDrawing
     {
         public override IEnumerable<INode> Nodes => FlyNodes.Nodes;
+        public FlyNodesDrawing()
+        {
+            Color = ImGui.ColorConvertFloat4ToU32(new Vector4(1f, 1f, 0.5f, 1));
+        }
     }
 
     public static DesiredPosition? Position { get; set; }
@@ -90,15 +98,21 @@ internal static class Service
         SaveTerritoryGraph();
     }
 
-    private static DateTime _lastRecordingTime = DateTime.Now;
+    private static DateTime _nextRecordingTime = DateTime.Now;
     private static bool _isRecording = false;
-    private static readonly TimeSpan WaitingTimeSpan = TimeSpan.FromSeconds(0.1);
     public static void AutoRecordPath()
     {
         if (!TakeMeEverywherePlugin.IsAutoRecording) return;
 
-        if (DateTime.Now - _lastRecordingTime < WaitingTimeSpan) return;
-        _lastRecordingTime = DateTime.Now;
+        if (DateTime.Now < _nextRecordingTime) return;
+
+        if (Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.Jumping])
+        {
+            _nextRecordingTime = DateTime.Now + TimeSpan.FromSeconds(0.8);
+            return;
+        }
+
+        _nextRecordingTime = DateTime.Now + TimeSpan.FromSeconds(0.05);
 
         if (_isRecording) return;
         _isRecording = true;
@@ -128,10 +142,18 @@ internal static class Service
                         FlyNodes.Add(node, SelectedNode);
                         SelectedNode = node;
                     }
-                    else if ((SelectedNode.Position - pos).LengthSquared() > 9)
+                    else
                     {
-                        FlyNodes.Add(node = new Node(pos), SelectedNode);
-                        SelectedNode = node;
+                        var dis = (SelectedNode.Position - pos).LengthSquared();
+                        if (dis > 20)
+                        {
+                            SelectOrAddNode();
+                        }
+                        else if(dis > 9)
+                        {
+                            FlyNodes.Add(node = new Node(pos), SelectedNode);
+                            SelectedNode = node;
+                        }
                     }
                 }
                 else if (!IsSelectedNodeFly && !XIVRunner.XIVRunner.IsFlying)
@@ -147,10 +169,18 @@ internal static class Service
                         SelectedNode = node;
 
                     }
-                    else if ((SelectedNode.Position - pos).LengthSquared() > 9)
+                    else
                     {
-                        RunNodes.Add(node = new Node(pos), SelectedNode);
-                        SelectedNode = node;
+                        var dis = (SelectedNode.Position - pos).LengthSquared();
+                        if (dis > 20)
+                        {
+                            SelectOrAddNode();
+                        }
+                        else if (dis > 9)
+                        {
+                            RunNodes.Add(node = new Node(pos), SelectedNode);
+                            SelectedNode = node;
+                        }
                     }
                 }
                 else
@@ -313,8 +343,10 @@ internal static class Service
         try
         {
             var graph = JsonConvert.DeserializeObject<TerritoryGraph>(str);
-            RunNodes.Load( graph.Run.ToNodes());
+            RunNodes.Load(graph.Run.ToNodes());
             FlyNodes.Load(graph.Fly.ToNodes());
+
+            SelectOrAddNode();
         }
         catch (Exception ex)
         {
@@ -355,8 +387,6 @@ internal abstract class NodesDrawing : Drawing3DPoly
 {
     public abstract IEnumerable<INode> Nodes { get; }
 
-    private static readonly uint color = uint.MaxValue;
-
     public override void UpdateOnFrame(XIVPainter.XIVPainter painter)
     {
         SubItems = Array.Empty<IDrawing3D>();
@@ -372,13 +402,13 @@ internal abstract class NodesDrawing : Drawing3DPoly
             var pos = node.Position;
             if ((pos - playerPosition).LengthSquared() > 2500) continue;
 
-            result.Add(new Drawing3DCircularSector(pos, 0.1f, color, 1)
+            result.Add(new Drawing3DCircularSector(pos, 0.1f, Color, 1)
             {
                 DrawWithHeight = false,
             });
             foreach (var outgoing in node.Outgoing)
             {
-                result.Add(new Drawing3DPolyline(new Vector3[] { pos, outgoing.End.Position }, color, 1)
+                result.Add(new Drawing3DPolyline(new Vector3[] { pos, outgoing.End.Position }, Color, 1)
                 {
                     IsFill = false,
                     DrawWithHeight = false,

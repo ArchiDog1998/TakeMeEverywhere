@@ -51,7 +51,7 @@ public class DesiredPosition
             }
             else
             {
-                Aetheryte = closest;
+                //Aetheryte = closest;
             }
         }
     }

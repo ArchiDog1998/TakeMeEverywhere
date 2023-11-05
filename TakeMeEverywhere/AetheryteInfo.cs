@@ -10,10 +10,11 @@ namespace TakeMeEverywhere;
 public unsafe struct AetheryteInfo
 {
     static AetheryteInfo[]? _aetheryteInfos;
-    public static AetheryteInfo[] AetheryteInfos => _aetheryteInfos 
+    public static AetheryteInfo[] AetheryteInfos => _aetheryteInfos
         ??= Svc.Data.GetExcelSheet<Aetheryte>()?
-            .Select(a => new AetheryteInfo(a)).ToArray()
-            ?? Array.Empty<AetheryteInfo>();
+        .Where(a => a.IsAetheryte || a.AethernetGroup != 0)
+        .Select(a => new AetheryteInfo(a)).ToArray()
+        ?? Array.Empty<AetheryteInfo>();
 
     public readonly Aetheryte Aetheryte;
     public readonly Vector2 Location;
