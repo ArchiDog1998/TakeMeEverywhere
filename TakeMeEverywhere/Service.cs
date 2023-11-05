@@ -71,7 +71,13 @@ internal static class Service
 
             var d = DateTime.Now.Millisecond / 1000f;
             var ratio = (float)DrawingExtensions.EaseFuncRemap(EaseFuncType.None, EaseFuncType.Cubic)(d);
+
+#if DEBUG
+            cir.Radius = SelectedNode == null ? 0 : ratio * 0.5f;
+#else
             cir.Radius = SelectedNode == null || !TakeMeEverywherePlugin.IsOpen ? 0 : ratio * 0.5f;
+#endif
+
         };
 
         Painter.AddDrawings(new RunNodesDrawing(), new FlyNodesDrawing(), new PathDrawing(), cir);
@@ -102,9 +108,20 @@ internal static class Service
     private static bool _isRecording = false;
     public static void AutoRecordPath()
     {
-        if (_isLoadingTerritory) return;
+        if (_isChangingTerritory) return;
 
         if (!TakeMeEverywherePlugin.IsAutoRecording) return;
+
+        //No recording in duty!
+        if (Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.Occupied]
+            || Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.Occupied30]
+            || Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.Occupied33]
+            || Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.Occupied38]
+            || Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.Occupied39]
+            || Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.OccupiedInCutSceneEvent]) return;
+
+        if (Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.Jumping61]) return;
+
         if (Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.BetweenAreas]
             || Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.BetweenAreas51]) return;
 
@@ -116,7 +133,7 @@ internal static class Service
         //    return;
         //}
 
-        _nextRecordingTime = DateTime.Now + TimeSpan.FromSeconds(0.05);
+        _nextRecordingTime = DateTime.Now + TimeSpan.FromSeconds(0.03);
 
         if (_isRecording) return;
         _isRecording = true;
@@ -136,55 +153,11 @@ internal static class Service
 
                 if (IsSelectedNodeFly && XIVRunner.XIVRunner.IsFlying)
                 {
-                    var node = FlyNodes.GetClosest(pos);
-                    if (node == SelectedNode)
-                    {
-                        return;
-                    }
-                    else if (node != null && (node.Position - pos).LengthSquared() < 9)
-                    {
-                        FlyNodes.Add(node, SelectedNode);
-                        SelectedNode = node;
-                    }
-                    else
-                    {
-                        var dis = (SelectedNode.Position - pos).LengthSquared();
-                        if (dis > 20)
-                        {
-                            SelectOrAddNode();
-                        }
-                        else if(dis > 9)
-                        {
-                            FlyNodes.Add(node = new Node(pos), SelectedNode);
-                            SelectedNode = node;
-                        }
-                    }
+                    AddNode(FlyNodes, pos);
                 }
                 else if (!IsSelectedNodeFly && !XIVRunner.XIVRunner.IsFlying)
                 {
-                    var node = RunNodes.GetClosest(pos);
-                    if (node == SelectedNode)
-                    {
-                        return;
-                    }
-                    else if (node != null && (node.Position - pos).LengthSquared() < 9)
-                    {
-                        RunNodes.Add(node, SelectedNode);
-                        SelectedNode = node;
-                    }
-                    else
-                    {
-                        var dis = (SelectedNode.Position - pos).LengthSquared();
-                        if (dis > 20)
-                        {
-                            SelectOrAddNode();
-                        }
-                        else if (dis > 9)
-                        {
-                            RunNodes.Add(node = new Node(pos), SelectedNode);
-                            SelectedNode = node;
-                        }
-                    }
+                    AddNode(RunNodes, pos);
                 }
                 else
                 {
@@ -196,6 +169,42 @@ internal static class Service
                 _isRecording = false;
             }
         });
+
+        static void AddNode(PathGraph graph, Vector3 pos)
+        {
+            if (SelectedNode == null)
+            {
+                return;
+            }
+
+            var node = graph.GetClosest(pos);
+            if (node == SelectedNode)
+            {
+                return;
+            }
+            else if (node != null)
+            {
+                if ((node.Position - SelectedNode.Position).LengthSquared() < 30)
+                {
+                    graph.Add(node, SelectedNode);
+                }
+                SelectedNode = node;
+            }
+            else
+            {
+                var dis = (SelectedNode.Position - pos).LengthSquared();
+                if (dis > 20)
+                {
+                    SelectOrAddNode();
+                }
+                else if (dis > 9)
+                {
+                    graph.Add(node = new Node(pos), SelectedNode);
+                    SelectedNode = node;
+                }
+            }
+            SaveTerritoryGraph();
+        }
     }
 
     public static void SelectOrAddNode()
@@ -291,31 +300,45 @@ internal static class Service
         node.Disconnect(SelectedNode);
     }
 
+    private static bool _isSaving = false;
     public static async void SaveTerritoryGraph()
     {
-        var id = Svc.ClientState.TerritoryType;
-        var name = Svc.Data.GetExcelSheet<TerritoryType>()?.GetRow(id)?.Name.RawString;
-
-        if (string.IsNullOrEmpty(name))
+        if(_isSaving) return;
+        _isSaving = true;
+        try
         {
-            return;
+            var id = Svc.ClientState.TerritoryType;
+            var name = Svc.Data.GetExcelSheet<TerritoryType>()?.GetRow(id)?.Name.RawString;
+
+            if (string.IsNullOrEmpty(name))
+            {
+                return;
+            }
+
+            var file = GetFile(name);
+
+            var str = JsonConvert.SerializeObject(new TerritoryGraph()
+            {
+                Run = new GraphDto(RunNodes.Nodes),
+                Fly = new GraphDto(FlyNodes.Nodes),
+            }, Formatting.Indented);
+
+            await File.WriteAllTextAsync(file, str);
         }
-
-        var file = GetFile(name);
-
-        var str = JsonConvert.SerializeObject(new TerritoryGraph()
+        catch
         {
-            Run = new GraphDto(RunNodes.Nodes),
-            Fly = new GraphDto(FlyNodes.Nodes),
-        }, Formatting.Indented);
 
-        await File.WriteAllTextAsync(file, str);
+        }
+        finally
+        {
+            _isSaving = false;
+        }
     }
 
-    private static bool _isLoadingTerritory = false;
+    private static bool _isChangingTerritory = false;
     private static async void TerritoryChanged(ushort obj)
     {
-        _isLoadingTerritory = true;
+        _isChangingTerritory = true;
 
         try
         {
@@ -361,7 +384,7 @@ internal static class Service
         }
         finally
         {
-            _isLoadingTerritory = false;
+            _isChangingTerritory = false;
         }
 
         static async Task DownloadFile(string name, string file)
@@ -402,7 +425,10 @@ internal abstract class NodesDrawing : Drawing3DPoly
     {
         SubItems = Array.Empty<IDrawing3D>();
 
+#if DEBUG
+#else
         if (!TakeMeEverywherePlugin.IsOpen) return;
+#endif
 
         if(!Player.Available) return;
         var playerPosition = Player.Object.Position;

@@ -28,6 +28,8 @@ internal class ConfigWindow : Window
 
         ImGui.Checkbox("Auto Recording", ref IsAutoRecording);
 
+        if (IsAutoRecording) return;
+
         if (ImGui.Button("Select or Add Node"))
         {
             DoOneThing(() =>
