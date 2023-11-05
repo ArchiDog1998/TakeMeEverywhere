@@ -102,15 +102,19 @@ internal static class Service
     private static bool _isRecording = false;
     public static void AutoRecordPath()
     {
+        if (_isLoadingTerritory) return;
+
         if (!TakeMeEverywherePlugin.IsAutoRecording) return;
+        if (Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.BetweenAreas]
+            || Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.BetweenAreas51]) return;
 
         if (DateTime.Now < _nextRecordingTime) return;
 
-        if (Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.Jumping])
-        {
-            _nextRecordingTime = DateTime.Now + TimeSpan.FromSeconds(0.8);
-            return;
-        }
+        //if (Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.Jumping])
+        //{
+        //    _nextRecordingTime = DateTime.Now + TimeSpan.FromSeconds(0.8);
+        //    return;
+        //}
 
         _nextRecordingTime = DateTime.Now + TimeSpan.FromSeconds(0.05);
 
@@ -137,7 +141,7 @@ internal static class Service
                     {
                         return;
                     }
-                    else if (node != null)
+                    else if (node != null && (node.Position - pos).LengthSquared() < 9)
                     {
                         FlyNodes.Add(node, SelectedNode);
                         SelectedNode = node;
@@ -163,11 +167,10 @@ internal static class Service
                     {
                         return;
                     }
-                    else if (node != null)
+                    else if (node != null && (node.Position - pos).LengthSquared() < 9)
                     {
                         RunNodes.Add(node, SelectedNode);
                         SelectedNode = node;
-
                     }
                     else
                     {
@@ -309,48 +312,56 @@ internal static class Service
         await File.WriteAllTextAsync(file, str);
     }
 
+    private static bool _isLoadingTerritory = false;
     private static async void TerritoryChanged(ushort obj)
     {
-        Runner.NaviPts.Clear();
-        RunNodes.Clear();
-        FlyNodes.Clear();
+        _isLoadingTerritory = true;
 
-        var name = Svc.Data.GetExcelSheet<TerritoryType>()?.GetRow(obj)?.Name.RawString;
-        if (string.IsNullOrEmpty(name))
+        try
         {
-            return;
-        }
+            Runner.NaviPts.Clear();
+            RunNodes.Clear();
+            FlyNodes.Clear();
 
-        var file = GetFile(name);
-        if (!File.Exists(file))
-        {
+            var name = Svc.Data.GetExcelSheet<TerritoryType>()?.GetRow(obj)?.Name.RawString;
+            if (string.IsNullOrEmpty(name))
+            {
+                return;
+            }
+
+            var file = GetFile(name);
+            if (!File.Exists(file))
+            {
+                try
+                {
+                    await DownloadFile(name, file);
+                }
+                catch (Exception ex)
+                {
+                    Svc.Log.Information(ex, "Failed to download territory graph.");
+                    return;
+                }
+                if (!File.Exists(file))
+                {
+                    return;
+                }
+            }
+
+            var str = await File.ReadAllTextAsync(file);
             try
             {
-                await DownloadFile(name, file);
+                var graph = JsonConvert.DeserializeObject<TerritoryGraph>(str);
+                RunNodes.Load(graph.Run.ToNodes());
+                FlyNodes.Load(graph.Fly.ToNodes());
             }
             catch (Exception ex)
             {
-                Svc.Log.Information(ex, "Failed to download territory graph.");
-                return;
-            }
-            if (!File.Exists(file))
-            {
-                return;
+                Svc.Log.Information(ex, "Failed to load territory graph.");
             }
         }
-
-        var str = await File.ReadAllTextAsync(file);
-        try
+        finally
         {
-            var graph = JsonConvert.DeserializeObject<TerritoryGraph>(str);
-            RunNodes.Load(graph.Run.ToNodes());
-            FlyNodes.Load(graph.Fly.ToNodes());
-
-            SelectOrAddNode();
-        }
-        catch (Exception ex)
-        {
-            Svc.Log.Information(ex, "Failed to load territory graph.");
+            _isLoadingTerritory = false;
         }
 
         static async Task DownloadFile(string name, string file)
@@ -435,21 +446,28 @@ internal class PathDrawing : Drawing3DPoly
 
         if (Service.Runner.NaviPts.Count == 0) return;
 
-        var result = new List<Drawing3DHighlightLine>();
-        foreach (var pt in Service.Runner.NaviPts)
+        try
         {
-            if ((pt - playerPosition).LengthSquared() <= 2500)
+            var result = new List<Drawing3DHighlightLine>();
+            foreach (var pt in Service.Runner.NaviPts)
             {
-                result.Add(new(lastPosition, pt, 0.5f, color, 1)
+                if ((pt - playerPosition).LengthSquared() <= 2500)
                 {
-                    DrawWithHeight = false,
-                });
-            }
+                    result.Add(new(lastPosition, pt, 0.5f, color, 1)
+                    {
+                        DrawWithHeight = false,
+                    });
+                }
 
-            lastPosition = pt;
+                lastPosition = pt;
+            }
+            SubItems = result.ToArray();
+        }
+        catch
+        {
+
         }
 
-        SubItems = result.ToArray();
         base.UpdateOnFrame(painter);
     }
 }

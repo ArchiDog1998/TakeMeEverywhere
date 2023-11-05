@@ -12,7 +12,9 @@ public unsafe struct AetheryteInfo
     static AetheryteInfo[]? _aetheryteInfos;
     public static AetheryteInfo[] AetheryteInfos => _aetheryteInfos
         ??= Svc.Data.GetExcelSheet<Aetheryte>()?
-        .Where(a => a.IsAetheryte || a.AethernetGroup != 0)
+        .Where(a => a != null)
+        .Where(a => a.IsAetheryte && !string.IsNullOrEmpty(a.PlaceName.Value?.Name.RawString)
+        || a.AethernetGroup != 0 && !string.IsNullOrEmpty(a.AethernetName.Value?.Name.RawString))
         .Select(a => new AetheryteInfo(a)).ToArray()
         ?? Array.Empty<AetheryteInfo>();
 
@@ -45,7 +47,7 @@ public unsafe struct AetheryteInfo
     {
         get
         {
-            if (Svc.ClientState.TerritoryType != Aetheryte.Territory.Value?.RowId) return false;
+            if (Svc.ClientState.TerritoryType != Aetheryte.Territory?.Value?.RowId) return false;
 
             var loc = new Vector2(Player.Object.Position.X, Player.Object.Position.Z);
 

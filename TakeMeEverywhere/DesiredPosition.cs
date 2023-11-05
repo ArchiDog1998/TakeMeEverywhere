@@ -51,7 +51,7 @@ public class DesiredPosition
             }
             else
             {
-                //Aetheryte = closest;
+                Aetheryte = closest;
             }
         }
     }
@@ -114,8 +114,7 @@ public class DesiredPosition
 
         var map = Svc.Data.GetExcelSheet<Map>()?.GetRow(marker.MapId);
 
-        var pos = new Vector3(marker.XFloat + map?.OffsetX ?? 0, float.NaN,
-            marker.YFloat + map?.OffsetY ?? 0);
+        var pos = new Vector3(marker.XFloat, float.NaN, marker.YFloat);
 
         return new DesiredPosition(marker.TerritoryId, pos);
     }
