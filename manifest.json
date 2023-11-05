@@ -1,0 +1,23 @@
+{
+  "Author": "ArchiTed",
+  "Name": "Take Me Everywhere",
+  "InternalName": "TakeMeEverywhere",
+  "Description": "Take your character to everywhere you want.\nThis plugin is based on the navigate graph on the territory. The way to create this graph is running among the territory by yourself!\nThere is some graph here, but not that much. Please wait for the enrich of the graphs.",
+  "ApplicableVersion": "any",
+  "Tags": [
+    "run",
+    "move"
+  ],
+  "CategoryTags": [
+    "actions"
+  ],
+  "DalamudApiLevel": 9,
+  "LoadRequiredState": 0,
+  "LoadSync": false,
+  "CanUnloadAsync": false,
+  "LoadPriority": 0,
+  "IsTestingExclusive": false,
+  "IconUrl": "https://xivapi.com/i/000000/000061_hr1.png",
+  "Punchline": "Take your character to everywhere you want.",
+  "AcceptsFeedback": true
+}
