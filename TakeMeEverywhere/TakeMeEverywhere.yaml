@@ -3,7 +3,9 @@ name: Take Me Everywhere
 author: ArchiTed
 description: |-
   Take your character to everywhere you want.
-punchline: Analyses PvE combat information every frame and finds the best action.
+  This plugin is based on the navigate graph on the territory. The way to create this graph is running among the territory by yourself!
+  There is some graph here, but not that much. Please wait for the enrich of the graphs.
+punchline: Take your character to everywhere you want.
 repo_url: https://github.com/ArchiDog1998/TakeMeEverywhere
 icon_url: https://xivapi.com/i/000000/000061_hr1.png
 dalamud_api_level: 9
