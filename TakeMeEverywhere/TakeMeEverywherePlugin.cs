@@ -86,6 +86,42 @@ public sealed class TakeMeEverywherePlugin : IDalamudPlugin, IDisposable
             Service.Runner.NaviPts.Clear();
             return;
         }
+        else if (arguments.StartsWith("pos"))
+        {
+            var values = arguments.Split(',');
+            if (values == null || values.Length < 3)
+            {
+                Svc.Chat.PrintError("Wrong format!, please do it like  'TerritoryId, X, Y, Z' or 'TerritoryId, X, Z'.");
+                return;
+            }
+            
+            if (!uint.TryParse(values[0].Trim(), out var territory))
+            {
+                Svc.Chat.PrintError("Territory id is not a unit, please write a unit!");
+                return;
+            }
+
+            const string locationFormat = "The location format isn't correct, please write float!";
+            float[]? floats = null;
+            try
+            {
+                floats = values.Skip(1).Select(f => float.Parse(f.Trim())).ToArray();
+            }
+            catch
+            {
+                Svc.Chat.PrintError(locationFormat);
+                return;
+            }
+
+            if (floats == null || floats.Length < 2)
+            {
+                Svc.Chat.PrintError(locationFormat);
+                return;
+            }
+
+            Service.Position = new DesiredPosition(territory, floats.Length == 2 ? new System.Numerics.Vector3(floats[0], float.NaN, floats[1]) : new System.Numerics.Vector3(floats[0], floats[1], floats[2]));
+            return;
+        }
 
         OnOpenConfigUi();
     }

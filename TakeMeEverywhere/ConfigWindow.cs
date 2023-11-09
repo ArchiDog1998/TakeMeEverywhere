@@ -24,6 +24,8 @@ internal class ConfigWindow : Window
 #endif
         CmdManager.DrawHelp();
 
+        CmdManager.DisplayCommandHelp("/takeme", $"pos {Svc.ClientState.TerritoryType},{Player.Object?.Position.X ?? 0},{Player.Object?.Position.Y ?? 0},{Player.Object?.Position.Z ?? 0}", "set the position from 'TerritoryId, X, Y, Z' or 'TerritoryId, X, Z'.");
+
         ImGui.Separator();
 
         ImGui.Checkbox("Auto Recording", ref IsAutoRecording);
