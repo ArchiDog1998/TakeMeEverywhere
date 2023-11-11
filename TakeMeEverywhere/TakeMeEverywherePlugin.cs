@@ -95,7 +95,7 @@ public sealed class TakeMeEverywherePlugin : IDalamudPlugin, IDisposable
                 return;
             }
             
-            if (!uint.TryParse(values[0].Trim(), out var territory))
+            if (!uint.TryParse(values[0][3..].Trim(), out var territory))
             {
                 Svc.Chat.PrintError("Territory id is not a unit, please write a unit!");
                 return;
