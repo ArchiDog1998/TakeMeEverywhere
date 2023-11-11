@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.2](https://github.com/ArchiDog1998/TakeMeEverywhere/compare/v1.0.1...v1.0.2) (2023-11-11)
+
+
+### Bug Fixes
+
+* add a cmd for pos. ([a64446f](https://github.com/ArchiDog1998/TakeMeEverywhere/commit/a64446f1be02f4ebe26dd9540cb788b7ef97f689))
+* fixed macro reading bug. ([18533c8](https://github.com/ArchiDog1998/TakeMeEverywhere/commit/18533c8a24c3573a0b5c843544a26e7ec22c2e90))
+
 ## [1.0.1](https://github.com/ArchiDog1998/TakeMeEverywhere/compare/v1.0.0...v1.0.1) (2023-11-05)
 
 
