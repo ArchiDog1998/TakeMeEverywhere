@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.3](https://github.com/ArchiDog1998/TakeMeEverywhere/compare/v1.0.2...v1.0.3) (2023-11-11)
+
+
+### Bug Fixes
+
+* update submodules. ([4cc8d8f](https://github.com/ArchiDog1998/TakeMeEverywhere/commit/4cc8d8fba716fae918011cfe6a823474336f174f))
+
 ## [1.0.2](https://github.com/ArchiDog1998/TakeMeEverywhere/compare/v1.0.1...v1.0.2) (2023-11-11)
 
 
