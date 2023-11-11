@@ -66,6 +66,7 @@ public class DesiredPosition
     {
         TerritoryId = territory;
         Position = position;
+        _isPrecise = IsValid;
     }
 
     public void TryMakeValid()
@@ -164,6 +165,9 @@ public class DesiredPosition
         if (Svc.ClientState.TerritoryType != TerritoryId)
         {
             _state = PathState.None;
+#if DEBUG
+            Svc.Log.Information("Territory wrong!");
+#endif
             return;
         }
         else if (!hasNaviPts)
@@ -195,7 +199,7 @@ public class DesiredPosition
                 {
                     _state = PathState.None;
                     Service.Position = null;
-                    Svc.Log.Info("Failed to calculate the path.");
+                    Svc.Log.Info("Failed to calculate the path. Please make sure that your graph is one graph!");
                 }
                 return;
 
@@ -208,7 +212,7 @@ public class DesiredPosition
                 {
                     _state = PathState.None;
                     Service.Position = null;
-                    Svc.Log.Info("Failed to calculate the path.");
+                    Svc.Log.Info("Failed to calculate the path. Please make sure that your graph is one graph!");
                 }
                 return;
         }
@@ -240,6 +244,10 @@ public class DesiredPosition
 
             var finder = new Roy_T.AStar.Paths.PathFinder();
             var path = finder.FindPath(startNode, endNode, float.MaxValue);
+
+            if (path == null) return false;
+
+            if (startNode != endNode && path.Edges.Count == 0) return false;
 
             foreach (var edge in path.Edges)
             {
@@ -374,5 +382,10 @@ public class DesiredPosition
             }
         }
         return false;
+    }
+
+    public override string ToString()
+    {
+        return $"{TerritoryId}: {Position}";
     }
 }

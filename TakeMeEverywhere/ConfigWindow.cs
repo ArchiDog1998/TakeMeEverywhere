@@ -16,13 +16,11 @@ internal class ConfigWindow : Window
 
     public override void Draw()
     {
-#if DEBUG
-        if(Player.Available)
-        {
-            ImGui.Text($"Pos: {Player.Object.Position.X}, {Player.Object.Position.Z}");
-        }
-#endif
         CmdManager.DrawHelp();
+
+        CmdManager.DisplayCommandHelp("/takeme", 
+            $"pos {Svc.ClientState.TerritoryType},{Player.Object?.Position.X ?? 0:F2},{Player.Object?.Position.Y ?? 0:F2},{Player.Object?.Position.Z ?? 0:F2}",
+            "set the position from 'TerritoryId, X, Y, Z' or 'TerritoryId, X, Z'.");
 
         ImGui.Separator();
 
