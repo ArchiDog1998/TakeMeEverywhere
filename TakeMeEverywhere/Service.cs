@@ -72,18 +72,13 @@ internal static class Service
             var d = DateTime.Now.Millisecond / 1000f;
             var ratio = (float)DrawingExtensions.EaseFuncRemap(EaseFuncType.None, EaseFuncType.Cubic)(d);
 
-#if DEBUG
-            cir.Radius = SelectedNode == null ? 0 : ratio * 0.5f;
-#else
             cir.Radius = SelectedNode == null || !TakeMeEverywherePlugin.IsOpen ? 0 : ratio * 0.5f;
-#endif
-
         };
 
         Painter.AddDrawings(new RunNodesDrawing(), new FlyNodesDrawing(), new PathDrawing(), cir);
 
 #if DEBUG
-        Painter.AddDrawings(new AetheryteDrawing());
+        //Painter.AddDrawings(new AetheryteDrawing());
 #endif
 
         Svc.ClientState.TerritoryChanged += TerritoryChanged;
@@ -425,10 +420,7 @@ internal abstract class NodesDrawing : Drawing3DPoly
     {
         SubItems = Array.Empty<IDrawing3D>();
 
-#if DEBUG
-#else
         if (!TakeMeEverywherePlugin.IsOpen) return;
-#endif
 
         if(!Player.Available) return;
         var playerPosition = Player.Object.Position;
